@@ -241,9 +241,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             var desks = db.GetModelSpaceObjects<BlockReference>(tr).Where(filter);
 
             /// Erase all DOOR blocks that are not on a locked layer:
-            int cnt = desks.UpgradeOpen().Erase();
+            
+            int count = desks.UpgradeOpen().Erase();
 
-            doc.Editor.WriteMessage($"Found and erased {cnt} DESK blocks");
+            tr.Commit();
+
+            doc.Editor.WriteMessage($"Found and erased {count} DESK blocks");
          }
       }
 
