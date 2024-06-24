@@ -209,7 +209,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       /// <summary>
       /// The following GetXxxxx() methods operate in the same way as the
-      /// GetBlock() method, but for other types of SymbolTableRecords.
+      /// GetBlock() method, but return other types of SymbolTableRecords.
       /// </summary>
 
       public static LayerTableRecord GetLayer(this Database db,
@@ -288,6 +288,95 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          bool throwIfNotFound = false)
       {
          return GetRecord<UcsTableRecord>(db, name, trans, mode, throwIfNotFound);
+      }
+
+      /// <summary>
+      /// This method can get a named SymbolTableRecord or 
+      /// an entry in a standard/built-in DBDictionary based
+      /// on the generic argument type.
+      /// 
+      /// For example, 
+      /// 
+      /// To get Group named "Group1", use:
+      /// 
+      ///    myDb.GetNamedObject<Group>("Group1", trans);
+      ///    
+      /// To get a LayerTableRecord:
+      /// 
+      ///    myDb.GetNamedObject<LayerTableRecord>("Layer1", trans);
+      ///    
+      /// </summary>
+      /// <typeparam name="T"></typeparam>
+      /// <param name="db"></param>
+      /// <param name="key"></param>
+      /// <param name="trans"></param>
+      /// <param name="mode"></param>
+      /// <param name="throwIfNotFound"></param>
+      /// <returns></returns>
+      /// <exception cref="InvalidOperationException"></exception>
+      /// <exception cref="KeyNotFoundException"></exception>
+
+      public static T GetNamedObject<T>(this Database db, 
+         string key, 
+         Transaction trans, 
+         OpenMode mode = OpenMode.ForRead,
+         bool throwIfNotFound = true) where T: DBObject
+      {
+         if(typeof(SymbolTableRecord).IsAssignableFrom(typeof(T)))
+         {
+            var func = SymbolTableAccessors.GetAccessor(typeof(T));
+            SymbolTable table = func(db).GetObject<SymbolTable>(trans);
+            ObjectId id = GetRecordId(table, key);
+            if(id.IsNull)
+            {
+               if(throwIfNotFound)
+                  throw new KeyNotFoundException(key);
+               return null;
+            }
+            return trans.GetObject<T>(id, mode);
+         }
+         return GetDictionaryObject<T>(db, key, trans, mode, throwIfNotFound);
+      }
+
+      /// <summary>
+      /// This method returns the elements of a SymbolTable
+      /// or a built-in, predefined DBDictionary. 
+      /// 
+      /// The generic argument defines both the collection whose 
+      /// elements are being requested, as well as the enumerated 
+      /// element type.
+      /// 
+      /// It can return SymbolTableRecords, or DBObjects referenced
+      /// by entries in a predefined DBDictionary.
+      /// 
+      /// For example:
+      /// 
+      /// To get all LayerTableRecords from the LayerTable:
+      /// 
+      ///   myDb.GetObjects<LayerTableRecord>(trans);
+      ///   
+      /// To get all Groups from the Group dictionary:
+      /// 
+      ///   myDb.GetObjects<Group>(trans);
+      /// 
+      /// </summary>
+      /// <typeparam name="T"></typeparam>
+      /// <param name="db"></param>
+      /// <param name="trans"></param>
+      /// <param name="mode"></param>
+      /// <returns></returns>
+
+      public static IEnumerable<T> GetObjects<T>(this Database db,
+         Transaction trans,
+         OpenMode mode = OpenMode.ForRead) where T : DBObject
+      {
+         if(typeof(SymbolTableRecord).IsAssignableFrom(typeof(T)))
+         {
+            var func = SymbolTableAccessors.GetAccessor(typeof(T));
+            SymbolTable table = func(db).GetObject<SymbolTable>(trans);
+            return table.GetObjectsOfType<T>(trans, true, mode);
+         }
+         return GetDictionaryObjects<T>(db, trans, mode);
       }
 
       /// <summary>

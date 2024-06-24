@@ -325,6 +325,19 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return GetObjectsCore<T>(source, trans, mode, false, true, false);
       }
 
+      /// An internal-use-only version of GetObjects<T> that
+      /// targets IEnumerable:
+      
+      internal static IEnumerable<T> GetObjectsOfType<T>(this IEnumerable source,
+         Transaction trans,
+         bool exact = false,
+         OpenMode mode = OpenMode.ForRead,
+         bool openErased = false,
+         bool openLocked = false) where T: DBObject
+      {
+         return GetObjectsCore<T>(source, trans, mode, exact, openErased, openLocked);
+      }
+
       /// <summary>
       /// Gets and opens an object of the specified generic
       /// argument type, having the given key from the target

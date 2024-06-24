@@ -250,6 +250,24 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          }
       }
 
+      [CommandMethod("GETOBJ")]
+      public static void GetNamedObjects()
+      {
+         using(var tr = new OpenCloseTransaction())
+         {
+            Document doc = Application.DocumentManager.MdiActiveDocument;
+            Database db = doc.Database;
+
+            var group1 = db.GetNamedObject<Group>("Group1", tr);
+            doc.Editor.WriteMessage($"\n{group1.ToString()}");
+            var layer = db.GetNamedObject<LayerTableRecord>("PHONES", tr);
+            doc.Editor.WriteMessage($"\n{layer.ToString()}");
+
+            tr.Commit();
+
+         }
+      }
+
    }
 
 }

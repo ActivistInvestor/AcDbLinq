@@ -76,7 +76,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
    }
 
-   static class SymbolTableAccessors
+   internal static class SymbolTableAccessors
    {
       readonly static Dictionary<Type, Func<Database, ObjectId>> map
          = new Dictionary<Type, Func<Database, ObjectId>>();
@@ -86,6 +86,13 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          if(!map.ContainsKey(typeof(T)))
             throw new ArgumentException($"Accessor not defined for type {typeof(T).Name}");
          return map[typeof(T)];
+      }
+
+      public static Func<Database, ObjectId> GetAccessor(Type type)
+      {
+         if(map.TryGetValue(type, out Func<Database, ObjectId> func))
+            return func;
+         return null;
       }
 
       static SymbolTableAccessors()
