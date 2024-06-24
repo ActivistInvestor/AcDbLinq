@@ -167,7 +167,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       public void SourceAnd(Expression<Func<TValueSource, bool>> operand)
       {
          Assert.IsNotNull(operand, nameof(operand));
-         expression &= operand;
+         expression = expression.And(operand);
          base.valueSelector = expression.Compile();
       }
 
