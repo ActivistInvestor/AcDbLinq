@@ -31,15 +31,15 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    ///
    /// <code>
    /// 
-   ///   var IsDesk = new DBObjectFilter<BlockReference, BlockTableRecord>(
-   ///         blkref => blkref.DynamicBlockTableRecord,
-   ///         block => block.Name.Matches("DESK*")
+   ///   var deskFilter = new DBObjectFilter<BlockReference, BlockTableRecord>(
+   ///      blkref => blkref.DynamicBlockTableRecord, 
+   ///      block => block.Name.Matches("DESK*")
    ///   );
    ///      
    /// </code>
-   /// Note that this time, the generic arguments are different.
+   /// Note that this time the generic arguments are different.
    /// The objects being queried are block references, and the
-   /// objects used to determine if each block reference satisfies
+   /// objects used to determine if a block reference satisfies
    /// the query criteria is the referenced BlockTableRecord. 
    /// 
    /// Also note that the first delegate passed to the constructor
@@ -90,7 +90,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// the filter that excludes entities on locked layers, it has to 
    /// open each LayerTableRecord <em>only once</em>, regardless of how
    /// many entities reference that layer. The result of applying the 
-   /// user-supplied predicate to each LayerTableRecord is cached, and 
+   /// caller-supplied predicate to each LayerTableRecord is cached, and 
    /// subsequently used whenever the locked state of that same layer 
    /// is requested.
    /// 
@@ -99,18 +99,18 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// of how many insertions of the same block are encountered. 
    /// 
    /// That means that instead of having to perform a wildcard comparison 
-   /// against a string derived from each block reference, the comparison 
-   /// is performed only once for each block definition, and the result is 
-   /// cached for subsequent use with other references to the same block.
+   /// for each block reference, the comparison is performed only once for 
+   /// each block definition, and the result is cached for subsequent use 
+   /// with other references to the same block.
    /// 
-   /// Using the BlockFilter to collect all insertions of blocks in 
-   /// model space whose names start with "DESK":
+   /// This example uses the BlockFilter to collect all insertions of 
+   /// blocks in model space whose names start with "DESK":
    /// </summary>
 
    public static class DynamicBlockFilterExample
    {
       /// <summary>
-      /// An example that finds and selects all blocks insertions
+      /// An example that finds and selects all block insertions
       /// in model space having names that start with "DESK":
       /// </summary>
 
@@ -135,6 +135,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             var desks = db.GetModelSpaceObjects<BlockReference>(tr).Where(deskFilter);
 
             // Get the ObjectIds of the resulting block references:
+
             var ids = desks.Select(br => br.ObjectId).ToArray();
             doc.Editor.WriteMessage($"\nFound {ids.Length} DESK blocks.");
 
@@ -240,7 +241,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             
             var desks = db.GetModelSpaceObjects<BlockReference>(tr).Where(filter);
 
-            /// Erase all DOOR blocks that are not on a locked layer:
+            /// Erase all DOOR blocks that are not on a locked layer,
+            /// this time using the Erase() extension method:
             
             int count = desks.UpgradeOpen().Erase();
 
