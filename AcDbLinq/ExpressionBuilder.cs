@@ -47,13 +47,8 @@ namespace System.Linq.Expressions.Predicates
             return left;
          var name = left.Parameters.First().Name;
          var parameter = Expression.Parameter(typeof(T), name);
-         var result = Expression.Lambda<Func<T, bool>>(
+         return Expression.Lambda<Func<T, bool>>(
             Visitor.Replace(parameter, Operator, left, right), parameter);
-#if DEBUG
-         //AcConsole.Write($"Join() => " +
-         //   $"{result.ToString()}");
-#endif
-         return result;
       }
 
       public static Expression<Func<T, bool>> Not<T>(this Expression<Func<T, bool>> expression)

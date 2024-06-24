@@ -25,8 +25,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// "effective name". The filter resolves anonymous dynamic 
    /// blocks to their dynamic block definition, allowing its 
    /// name to be filtered against for both references to the
-   /// original dynamic block, and references to any anonymous
-   /// 'variations' of it. This example will include references
+   /// dynamic block definition, and references to all anonymous
+   /// variations of it. This example will include references
    /// to all blocks having names that start with "DESK":
    ///
    /// <code>
@@ -60,8 +60,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// BlockTableRecords, creating two versions, one that resolves to
    /// dynamic blocks, and one that resolves to anonymous blocks:
    /// 
-   /// A version that resolves dynamic block references to 
-   /// anonymous blocks:
+   /// A specialization of DBObjectFilter that resolves dynamic block 
+   /// references to anonymous blocks:
    ///
 
    public class StaticBlockFilter : DBObjectFilter<BlockReference, BlockTableRecord>
@@ -218,8 +218,13 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       /// <summary>
       /// Erases all insertions of blocks having names starting
-      /// with "DESK" in model space, that are not on a locked
-      /// layer.
+      /// with "DESK" in model space that reside on the layer 
+      /// "FURNITURE", and are not on a locked layer:
+      /// 
+      /// This example shows how to add an additional condition 
+      /// to the query criteria used to qualify objects to be
+      /// erased (that they must reside on the layer "FURNITURE"
+      /// in addition to the layer not being locked).
       /// </summary>
 
       [CommandMethod("ERASEDESKS2")]
@@ -229,22 +234,24 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          Database db = doc.Database;
          using(Transaction tr = doc.TransactionManager.StartTransaction())
          {
-            /// Define a filter that includes only block references
-            /// having names starting with 'DESK':
+            /// Define a filter that includes only block 
+            /// references having names starting with 'DESK'.
+            /// This filter is an instance of the BlockFilter
+            /// specialization defined above:
             
             var blockFilter = new BlockFilter(btr => btr.Name.Matches("DESK*"));
             
-            /// Define a filter that excludes block references on 
-            /// locked layers:
+            /// Define a filter that excludes block references 
+            /// on locked layers:
             
             var layerFilter = new DBObjectFilter<BlockReference, LayerTableRecord>(
                btr => btr.LayerId, layer => !layer.IsLocked);
 
             /// Add an additional condition to the LayerFilter
             /// predicate that's applied to each LayerTableRecord, 
-            /// requiring the layer's name to start with "FURNITURE":
+            /// requiring the layer's name be equal to "FURNITURE":
 
-            layerFilter.Expression.And(layer => layer.Name.Matches("FURNITURE*"));
+            layerFilter.Expression.And(layer => layer.Name.IsEqualTo("FURNITURE"));
 
             // Logically-join the blockFilter and
             // layerFilter using the And() method:

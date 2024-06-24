@@ -121,7 +121,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
    {
       Expression<Func<TValueSource, bool>> expression;
-      ValuePredicateProxy predicate;
+      ExpressionProperty expressionProperty;
 
       public DBObjectFilter(Func<TKeySource, ObjectId> keySelector,
                               Expression<Func<TValueSource, bool>> valueSelector)
@@ -132,13 +132,13 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       public Func<TKeySource, bool> Predicate => GetValue;
 
-      public ValuePredicateProxy Expression 
+      public ExpressionProperty Expression 
       { 
          get 
          {
-            if(predicate == null) 
-               predicate = new ValuePredicateProxy(this);
-            return predicate;
+            if(expressionProperty == null) 
+               expressionProperty = new ExpressionProperty(this);
+            return expressionProperty;
          } 
       }
 
@@ -164,32 +164,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return current.Or(operand);
       }
 
-      /// <summary>
-      /// AndPredicate() and PredicateOr() combine predicates (the 
-      /// second delegate passed to DBObjectFilter's constructor).
-      /// 
-      /// To combine the filter predicate with another predicate,
-      /// use And() and Or().
-      /// </summary>
-      /// <param name="operand"></param>
-
       public void SourceAnd(Expression<Func<TValueSource, bool>> operand)
       {
          Assert.IsNotNull(operand, nameof(operand));
-         expression = expression.And(operand);
+         expression &= operand;
          base.valueSelector = expression.Compile();
       }
-
-      /// <summary>
-      /// Sets the valueSelector predicate to return the result 
-      /// of the logical OR of its result and the result of the 
-      /// given predicate. 
-      /// 
-      /// This method can be used to add additional conditions 
-      /// to the valueSelector predicate that was supplied to 
-      /// the constructor.
-      /// </summary>
-      /// <param name="operand"></param>
 
       public void SourceOr(Expression<Func<TValueSource, bool>> operand)
       {
@@ -224,10 +204,11 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return arg => filter.GetValue(arg);
       }
 
-      public class ValuePredicateProxy
+      public class ExpressionProperty
       {
          DBObjectFilter<TKeySource, TValueSource> owner;
-         public ValuePredicateProxy(DBObjectFilter<TKeySource, TValueSource> owner)
+
+         public ExpressionProperty(DBObjectFilter<TKeySource, TValueSource> owner)
          {
             this.owner = owner;
          }
@@ -239,22 +220,16 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             owner.valueSelector = owner.expression.Compile();
          }
 
-         /// <summary>
-         /// Sets the valueSelector predicate to return the result 
-         /// of the logical OR of its result and the result of the 
-         /// given predicate. 
-         /// 
-         /// This method can be used to add additional conditions 
-         /// to the valueSelector predicate that was supplied to 
-         /// the constructor.
-         /// </summary>
-         /// <param name="operand"></param>
-
          public void Or(Expression<Func<TValueSource, bool>> operand)
          {
             Assert.IsNotNull(operand, nameof(operand));
             owner.expression = owner.expression.Or(operand);
             owner.valueSelector = owner.expression.Compile();
+         }
+
+         public static implicit operator Expression<Func<TValueSource, bool>>(ExpressionProperty operand)
+         {
+            return operand?.owner?.expression;
          }
       }
 
