@@ -8,7 +8,6 @@
 /// development of managed AutoCAD extensions.
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.AutoCAD.Runtime;
@@ -60,7 +59,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          bool exact = false,
          bool openLocked = false) where T : Entity
       {
-         CheckTransaction(db, trans);
+         db.CheckTransaction(trans);
          return SymbolUtilityServices.GetBlockModelSpaceId(db)
             .GetObject<BlockTableRecord>(trans)
             .GetObjects<T>(trans, mode, exact, openLocked);
@@ -102,7 +101,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          bool exact = false,
          bool openLocked = false) where T : Entity
       {
-         CheckTransaction(db, trans);
+         db.CheckTransaction(trans);
          return db.CurrentSpaceId.GetObject<BlockTableRecord>(trans)
             .GetObjects<T>(trans, mode, exact, openLocked);
       }
@@ -137,7 +136,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          bool exact = false,
          bool openLocked = false) where T : Entity
       {
-         CheckTransaction(db, trans);
+         db.CheckTransaction(trans);
          return db.GetLayoutBlocks(trans)
             .SelectMany(btr => btr.GetObjects<T>(trans, mode, exact, openLocked));
       }
@@ -308,11 +307,11 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <exception cref="InvalidOperationException"></exception>
       /// <exception cref="KeyNotFoundException"></exception>
 
-      public static T GetNamedObject<T>(this Database db, 
-         string key, 
-         Transaction trans, 
+      public static T GetNamedObject<T>(this Database db,
+         string key,
+         Transaction trans,
          OpenMode mode = OpenMode.ForRead,
-         bool throwIfNotFound = true) where T: DBObject
+         bool throwIfNotFound = true) where T : DBObject
       {
          if(typeof(SymbolTableRecord).IsAssignableFrom(typeof(T)))
          {
@@ -457,7 +456,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          OpenMode mode = OpenMode.ForRead) where T : SymbolTableRecord
       {
          Assert.IsNotNull(predicate, nameof(predicate));
-         CheckTransaction(db, trans);
+         db.CheckTransaction(trans);
          var result = db.GetSymbolTableRecords<T>(trans, OpenMode.ForRead)
             .FirstOrDefault(predicate);
          if(result != null && mode == OpenMode.ForWrite)
@@ -563,7 +562,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       public static IEnumerable<ObjectId> GetDictionaryEntryIds<T>(
-            this Database db, 
+            this Database db,
             Func<T, bool> predicate) where T : DBObject
       {
          Assert.IsNotNullOrDisposed(db, nameof(db));
@@ -638,10 +637,10 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       public static T GetDictionaryObject<T>(this Database db,
          Transaction trans,
          Func<T, bool> predicate,
-         OpenMode mode = OpenMode.ForRead) where T: DBObject
+         OpenMode mode = OpenMode.ForRead) where T : DBObject
       {
          Assert.IsNotNull(predicate, nameof(predicate));
-         CheckTransaction(db, trans);
+         db.CheckTransaction(trans);
          var result = db.GetDictionaryObjects<T>(trans)
             .FirstOrDefault(predicate);
          if(result != null && mode == OpenMode.ForWrite)
@@ -664,7 +663,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          Transaction trans,
          OpenMode mode = OpenMode.ForRead) where T : DBObject
       {
-         CheckTransaction(db, trans);
+         db.CheckTransaction(trans);
          return DBDictionary<T>.GetDictionary(db, trans).GetObjects<T>(trans, mode);
       }
 
@@ -689,9 +688,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// name is not found. If false, this method returns null.</param>
       /// <returns>The Group object having the specified name</returns>
 
-      public static Group GetGroup(this Database db, 
-         string name, 
-         Transaction trans, 
+      public static Group GetGroup(this Database db,
+         string name,
+         Transaction trans,
          OpenMode mode = OpenMode.ForRead,
          bool throwIfNotFound = false)
       {
@@ -700,7 +699,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       public static DataLink GetDataLink(this Database db,
          string name,
-         Transaction trans, 
+         Transaction trans,
          OpenMode mode = OpenMode.ForRead,
          bool throwIfNotFound = false)
       {
@@ -830,7 +829,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          int cnt = ids.Count;
          for(int i = 0; i < cnt; i++)
          {
-            yield return (BlockReference) trans.GetObject(ids[i], mode, false, openLocked);
+            yield return (BlockReference)trans.GetObject(ids[i], mode, false, openLocked);
          }
          if(!blockTableRecord.IsAnonymous && blockTableRecord.IsDynamicBlock)
          {
@@ -900,7 +899,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       // (e.g., those that are not directly-owned
       // by a layout block):
 
-      class LayoutOwnerFilter : DBObjectFilter<Entity, BlockTableRecord> 
+      class LayoutOwnerFilter : DBObjectFilter<Entity, BlockTableRecord>
       {
          public LayoutOwnerFilter()
             : base(ent => ent.BlockId, btr => btr.IsLayout) { }
@@ -917,7 +916,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <summary>
       /// SymbolUtilityServices extensions
       /// </summary>
-      
+
       public static ObjectId GetModelSpaceBlockId(this Database db)
       {
          Assert.IsNotNullOrDisposed(db, nameof(db));
@@ -988,7 +987,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <returns>The subset of the input sequence that are
       /// contained in the layout with the given name.</returns>
 
-      public static IEnumerable<T> FromLayout<T>(this IEnumerable<T> source, string LayoutName) 
+      public static IEnumerable<T> FromLayout<T>(this IEnumerable<T> source, string LayoutName)
          where T : Entity
       {
          Assert.IsNotNull(source, nameof(source));
@@ -1120,6 +1119,13 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             .SelectMany(btr => btr.GetBlockReferences(trans, mode));
       }
 
+      static bool IsUserBlock(this BlockTableRecord btr) => 
+         !(btr.IsAnonymous
+            || btr.IsLayout
+            || btr.IsFromExternalReference
+            || btr.IsFromOverlayReference
+            || btr.IsDependent);
+      
       /// <summary>
       /// Get all AttributeReferences with the given tag from
       /// every insertion of the given BlockTableRecord.
@@ -1197,171 +1203,6 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       {
          return blkref.GetAttributes(tr)
             .ToDictionary(att => att.Tag.ToUpper(), att => att.TextString);
-      }
-
-      /// Helper methods
-
-      /// <summary>
-      /// A common error is using the wrong Transaction manager
-      /// to obtain a transaction for a Database that's not open
-      /// in the editor. This API attempts to check that.
-      /// 
-      /// If the Transaction is a DatabaseServices.Transaction
-      /// and the Transaction's TransactionManager is not the 
-      /// Database's TransactionManager, an exception is thrown.
-      /// 
-      /// The check cannot be fully-performed without a depenence
-      /// on AcMgd/AcCoreMgd.dll, but usually isn't required when
-      /// using a Document's TransactionManager.
-      /// </summary>
-      /// <param name="db">The Database to check</param>
-      /// <param name="trans">The Transaction to check against the Database</param>
-      /// <exception cref="ArgumentNullException"></exception>
-      /// <exception cref="ArgumentException"></exception>
-
-      static void CheckTransaction(this Database db, Transaction trans)
-      {
-         if(db == null || db.IsDisposed)
-            throw new ArgumentNullException(nameof(db));
-         if(trans == null || trans.IsDisposed)
-            throw new ArgumentNullException(nameof(trans));
-         if(trans is OpenCloseTransaction)
-            return;
-         if(trans.GetType() != typeof(Transaction))
-            return;   // can't perform this check without pulling in AcMgd/AcCoreMgd
-         if(trans.TransactionManager != db.TransactionManager)
-            throw new ArgumentException("Transaction not from this Database");
-      }
-
-      static void TryCheckTransaction(object source, Transaction trans)
-      {
-         Assert.IsNotNull(source, nameof(source));
-         Assert.IsNotNullOrDisposed(trans, nameof(trans));
-         if(trans is OpenCloseTransaction)
-            return;
-         if(trans.GetType() != typeof(Transaction))
-            return; // can't perform check without pulling in AcMgd/AcCoreMgd
-         if(source is DBObject obj && obj.Database is Database db
-               && trans.TransactionManager != db.TransactionManager)
-            throw new ArgumentException("Transaction not from this Database");
-      }
-
-      /// <summary>
-      /// Should be self-explanatory
-      /// </summary>
-
-      static bool IsUserBlock(this BlockTableRecord btr)
-      {
-         return !(btr.IsAnonymous
-            || btr.IsLayout
-            || btr.IsFromExternalReference
-            || btr.IsFromOverlayReference
-            || btr.IsDependent);
-      }
-
-      /// <summary>
-      /// Disposes all the elements in the source sequence,
-      /// and the source if it is an IDisposable. Useful with
-      /// DBObjectCollection to ensure that all of the items
-      /// retreived from it are disposed.
-      /// </summary>
-      /// <typeparam name="T"></typeparam>
-      /// <param name="source"></param>
-
-      public static void Dispose<T>(this IEnumerable<T> source) where T : IDisposable
-      {
-         foreach(var obj in source ?? new T[0])
-         {
-            DisposableWrapper wrapper = obj as DisposableWrapper;
-            if(wrapper?.IsDisposed == true)
-               continue;
-            obj?.Dispose();
-         }
-      }
-
-      /// <summary>
-      /// Like Enumerable.First() except it targets the
-      /// non-generic IEnumerable.
-      /// </summary>
-
-      static object First(this IEnumerable enumerable)
-      {
-         if(enumerable == null)
-            throw new ArgumentNullException(nameof(enumerable));
-         var e = enumerable.GetEnumerator();
-         try
-         {
-            if(e.MoveNext())
-               return e.Current;
-            else
-               return null;
-         }
-         finally
-         {
-            (e as IDisposable)?.Dispose();
-         }
-      }
-
-      /// <summary>
-      /// Safe disposer for DBObjectCollections.
-      /// 
-      /// It is common to have code that disposes all elements in a
-      /// DBObjectCollection after using it, in a loop. This method
-      /// automates that by returning an object that calls Dispose() 
-      /// on each element in a DBObjectCollection when the instance 
-      /// is disposed, and also disposes the DBObjectCollection.
-      /// 
-      /// For example:
-      /// <code>
-      /// 
-      ///    Transaction tr;            // assigned to a Transaction
-      ///    Curve curve;               // assigned to a Curve entity
-      ///    Point3dCollection points;  // assigned to a Point3dCollection
-      ///    
-      ///    DBObjectCollection fragments = curve.GetSplitCurves(points);
-      ///    
-      ///    using(fragments.EnsureDispose())
-      ///    {
-      ///       // use fragments here, the
-      ///       // DBObjectCollection and its
-      ///       // elements are disposed upon
-      ///       // exiting this using() block.
-      ///    }
-      /// 
-      /// <code>
-      /// 
-      /// </code>
-      /// </summary>
-      /// <param name="collection"></param>
-      /// <returns></returns>
-
-      public static IDisposable EnsureDispose(this DBObjectCollection collection)
-      {
-         return new ItemsDisposer(collection);
-      }
-
-      class ItemsDisposer : IDisposable 
-      {
-         IEnumerable items;
-         bool disposed;
-         bool disposeOwner = true;
-
-         public ItemsDisposer(IEnumerable items, bool disposeOwner = true)
-         {
-            this.items = items;
-            this.disposeOwner = disposeOwner;
-         }
-
-         public void Dispose()
-         {
-            if(!disposed && items != null)
-            {
-               disposed = true;
-               items.OfType<IDisposable>().Dispose();
-               if(disposeOwner && items is IDisposable disposable)
-                  disposable.Dispose();
-            }
-         }
       }
    }
 

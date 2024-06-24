@@ -71,7 +71,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       public static SymbolTable GetSymbolTable(Database db, Transaction tr, OpenMode mode = OpenMode.ForRead)
       {
-         CollectionExtensions.CheckTransaction(db, tr);
+         db.CheckTransaction(tr);
          return GetObjectId(db).GetObject<SymbolTable>(tr, mode);
       }
    }
@@ -155,7 +155,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       {
          if(typeof(T).IsAbstract)
             throw new ArgumentException("Requires a non-abstract type derived from SymbolTableRecord");
-         CollectionExtensions.CheckTransaction(database, trans);
+         database.CheckTransaction(trans);
          return GetSymbolTableId<T>(database).GetObject<SymbolTable>(trans, mode);
       }
    }

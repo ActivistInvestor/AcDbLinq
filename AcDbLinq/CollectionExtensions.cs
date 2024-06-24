@@ -115,7 +115,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          bool openErased = false,
          bool openLocked = false) where T : DBObject
       {
-         TryCheckTransaction(source, trans);
+         source.TryCheckTransaction(trans);
          openLocked &= mode == OpenMode.ForWrite;
          var predicate = RXClass<T>.GetIdPredicate(exact);
 
@@ -475,7 +475,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       public static DBDictionary GetExtensionDictionary(this DBObject owner, Transaction trans, OpenMode mode = OpenMode.ForRead, bool create = false)
       {
          Assert.IsNotNullOrDisposed(owner, nameof(owner));
-         TryCheckTransaction(owner, trans);
+         owner.TryCheckTransaction(trans);
          ObjectId id = owner.ExtensionDictionary;
          if(id.IsNull && create)
          {
@@ -623,32 +623,32 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          }
       }
 
-      internal static void CheckTransaction(this Database db, Transaction trans)
-      {
-         if(db == null || db.IsDisposed)
-            throw new ArgumentNullException(nameof(db));
-         if(trans == null || trans.IsDisposed)
-            throw new ArgumentNullException(nameof(trans));
-         if(trans is OpenCloseTransaction)
-            return;
-         if(trans.GetType() != typeof(Transaction))
-            return;   // can't perform this check without pulling in AcMgd/AcCoreMgd
-         if(trans.TransactionManager != db.TransactionManager)
-            throw new ArgumentException("Transaction not from this Database");
-      }
+      //internal static void CheckTransaction(this Database db, Transaction trans)
+      //{
+      //   if(db == null || db.IsDisposed)
+      //      throw new ArgumentNullException(nameof(db));
+      //   if(trans == null || trans.IsDisposed)
+      //      throw new ArgumentNullException(nameof(trans));
+      //   if(trans is OpenCloseTransaction)
+      //      return;
+      //   if(trans.GetType() != typeof(Transaction))
+      //      return;   // can't perform this check without pulling in AcMgd/AcCoreMgd
+      //   if(trans.TransactionManager != db.TransactionManager)
+      //      throw new ArgumentException("Transaction not from this Database");
+      //}
 
-      internal static void TryCheckTransaction(object source, Transaction trans)
-      {
-         Assert.IsNotNull(source, nameof(source));
-         Assert.IsNotNullOrDisposed(trans, nameof(trans));
-         if(trans is OpenCloseTransaction)
-            return;
-         if(trans.GetType() != typeof(Transaction))
-            return; // can't perform check without pulling in AcMgd/AcCoreMgd
-         if(source is DBObject obj && obj.Database is Database db
-               && trans.TransactionManager != db.TransactionManager)
-            throw new ArgumentException("Transaction not from this Database");
-      }
+      //internal static void TryCheckTransaction(object source, Transaction trans)
+      //{
+      //   Assert.IsNotNull(source, nameof(source));
+      //   Assert.IsNotNullOrDisposed(trans, nameof(trans));
+      //   if(trans is OpenCloseTransaction)
+      //      return;
+      //   if(trans.GetType() != typeof(Transaction))
+      //      return; // can't perform check without pulling in AcMgd/AcCoreMgd
+      //   if(source is DBObject obj && obj.Database is Database db
+      //         && trans.TransactionManager != db.TransactionManager)
+      //      throw new ArgumentException("Transaction not from this Database");
+      //}
 
 
    }
