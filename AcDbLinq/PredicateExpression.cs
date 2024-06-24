@@ -1,4 +1,10 @@
-﻿using Autodesk.AutoCAD.Runtime.Diagnostics;
+﻿/// PredicateExpression.cs
+/// 
+/// ActivistInvestor / Tony Tanzillo
+///
+/// Distributed under terms of the MIT License
+
+using Autodesk.AutoCAD.Runtime.Diagnostics;
 
 namespace System.Linq.Expressions.Predicates
 {
@@ -89,7 +95,15 @@ namespace System.Linq.Expressions.Predicates
       /// If the predicate is never called, the expression
       /// is never compiled.
       /// 
-      /// This CompileAndInvoke() method is assigned to the 
+      /// Because instance of this class are implicitly-
+      /// convertable to a predicate (Func<T, bool>), one
+      /// can pass an instance of this class wherever the
+      /// predicate function is accepted, and when the
+      /// predicate is first called, the expression will be
+      /// compiled and then the resulting predicate called
+      /// and pass the argument.
+      /// 
+      /// The CompileAndInvoke() method is assigned to the 
       /// predicate field when the expression has changed and 
       /// needs to be compiled or recompiled, which includes
       /// the point at which the instance is constructed.
@@ -151,8 +165,11 @@ namespace System.Linq.Expressions.Predicates
          private set
          {
             Assert.IsNotNull(value, nameof(value));
-            expression = value;
-            predicate = CompileAndInvoke;
+            if(!object.ReferenceEquals(expression, value))
+            {
+               expression = value;
+               predicate = CompileAndInvoke;
+            }
          }
       }
 
@@ -219,8 +236,8 @@ namespace System.Linq.Expressions.Predicates
       /// <summary>
       /// Operators
       ///   
-      ///    x & y is equivalent to x.And(y)
-      ///    x | y is equivalent to x.Or(y)
+      ///    (x & y) is equivalent to x.And(y)
+      ///    (x | y) is equivalent to x.Or(y)
       ///    
       ///    x &= y1 & y2 & y3 
       ///    

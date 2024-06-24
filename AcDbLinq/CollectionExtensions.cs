@@ -1,13 +1,9 @@
-﻿/// DBObjectExtensions.cs  
+﻿/// CollectionExtensions.cs  
 /// 
 /// ActivistInvestor / Tony T.
 /// 
 /// Distributed under the terms of the MIT license.
 /// 
-/// Source location:
-/// 
-///     https://github.com/ActivistInvestor/AcMgdUtility/blob/main/DBObjectExtensions.cs
-///     
 /// A collection of old helper APIs that provide 
 /// support for accessing/querying the contents 
 /// of AutoCAD Databases using LINQ.

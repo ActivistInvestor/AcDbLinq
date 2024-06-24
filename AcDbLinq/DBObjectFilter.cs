@@ -1,22 +1,11 @@
-﻿/// DBObjectExtensions.cs  
+﻿/// DBObjectFilter.cs  
 /// 
 /// ActivistInvestor / Tony T.
 /// 
 /// Distributed under the terms of the MIT license.
 /// 
-/// Source location:
-/// 
-///     https://github.com/ActivistInvestor/AcMgdUtility/blob/main/DBObjectExtensions.cs
-///     
-/// A collection of old helper APIs that provide 
-/// support for accessing/querying the contents 
-/// of AutoCAD Databases using LINQ.
-/// 
-/// A few changes have been made along the way, since 
-/// this library was first written (which happened over
-/// the period of several years). 
-/// 
-/// Some of those revisions require C# 7.0.
+/// Classes that aid in the efficient filtering of 
+/// DBObjects in Linq queries and other sceanrios.
 
 using System;
 using System.Linq.Expressions;
@@ -27,8 +16,6 @@ using Expr = System.Linq.Expressions.Expression;
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {
-
-
    /// <summary>
    /// DBObjectFilter
    /// 

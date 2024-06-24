@@ -1,4 +1,4 @@
-﻿/// DynamicBlockFilterExample.cs  
+﻿/// DBObjectFilterExample.cs  
 /// 
 /// ActivistInvestor / Tony T.
 /// 

@@ -1,4 +1,10 @@
-﻿using Autodesk.AutoCAD.Runtime.Diagnostics;
+﻿/// ExpressionBuilder.cs
+///
+/// ActivistInvestor / Tony Tanzillo
+/// 
+/// Distributed under the terms of the MIT License
+
+using Autodesk.AutoCAD.Runtime.Diagnostics;
 using System.Collections.Generic;
 
 namespace System.Linq.Expressions.Predicates
@@ -13,8 +19,14 @@ namespace System.Linq.Expressions.Predicates
    /// 
    ///   https://www.albahari.com/nutshell/predicatebuilder.aspx
    ///   
-   /// But, takes a somewhat different route by 
-   /// making everything an extension method.
+   /// But, takes a somewhat different approach 
+   /// using extension methods. As a result, there
+   /// is no need to reference ExpressionBuilder or
+   /// any other custom type. 
+   /// 
+   /// Almost all functionality can be accessing using 
+   /// extension methods targeting Expression<Func<T, bool>> 
+   /// and Func<T, bool>.
    /// 
    /// </summary>
 

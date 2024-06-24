@@ -3,11 +3,6 @@
 /// ActivistInvestor / Tony T.
 /// 
 /// Distributed under the terms of the MIT license.
-/// 
-/// Source location:
-/// 
-///   https://github.com/ActivistInvestor/AcMgdUtility/blob/main/DBObjectExtensions/RuntimeExtensions.cs
-///     
 
 using System;
 using Autodesk.AutoCAD.DatabaseServices;

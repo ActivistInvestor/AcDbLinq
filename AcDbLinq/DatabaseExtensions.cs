@@ -1,22 +1,11 @@
-﻿/// DBObjectExtensions.cs  
+﻿/// DatabaseExtensions.cs  
 /// 
 /// ActivistInvestor / Tony T.
 /// 
 /// Distributed under the terms of the MIT license.
 /// 
-/// Source location:
-/// 
-///     https://github.com/ActivistInvestor/AcMgdUtility/blob/main/DBObjectExtensions.cs
-///     
-/// A collection of old helper APIs that provide 
-/// support for accessing/querying the contents 
-/// of AutoCAD Databases using LINQ.
-/// 
-/// A few changes have been made along the way, since 
-/// this library was first written (which happened over
-/// the period of several years). 
-/// 
-/// Some of those revisions require C# 7.0.
+/// High-level APIs that help simplify and streamline 
+/// development of managed AutoCAD extensions.
 
 using System;
 using System.Collections;
@@ -29,17 +18,19 @@ using AcRx = Autodesk.AutoCAD.Runtime;
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {
+   /// <summary>
+   /// This class exposes high-level extension methods 
+   /// targeting the Database class, and are built on top
+   /// of methods of the CollectionExtensions class.
+   /// 
+   /// These methods are intended to simplify application 
+   /// development by allowing the developer to focus on 
+   /// the details of the application, rather than the 
+   /// details of the implementation of common operations.
+   /// </summary>
+
    public static partial class DatabaseExtensions
    {
-      /// This class exposes high-level extension methods 
-      /// Targeting the Database class, and are built on 
-      /// top of DBObjectExtensions. 
-      /// 
-      /// These methods are intended to simplify application 
-      /// development by allowing the developer to focus on 
-      /// the details of the application, rather than the 
-      /// details of the implementation of common operations.
-
       /// <summary>
       /// Returns a sequence of entities from the given database's
       /// model space. The type of the generic argument is used
@@ -353,11 +344,11 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// 
       /// To get all LayerTableRecords from the LayerTable:
       /// 
-      ///   myDb.GetObjects<LayerTableRecord>(trans);
+      ///   myDatabase.GetObjects<LayerTableRecord>(trans);
       ///   
       /// To get all Groups from the Group dictionary:
       /// 
-      ///   myDb.GetObjects<Group>(trans);
+      ///   myDatabase.GetObjects<Group>(trans);
       /// 
       /// </summary>
       /// <typeparam name="T"></typeparam>
