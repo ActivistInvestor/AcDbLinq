@@ -4,6 +4,7 @@
 /// 
 /// Distributed under the terms of the MIT License
 
+using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Runtime.Diagnostics;
 using System.Collections.Generic;
 
@@ -46,8 +47,13 @@ namespace System.Linq.Expressions.Predicates
             return left;
          var name = left.Parameters.First().Name;
          var parameter = Expression.Parameter(typeof(T), name);
-         return Expression.Lambda<Func<T, bool>>(
+         var result = Expression.Lambda<Func<T, bool>>(
             Visitor.Replace(parameter, Operator, left, right), parameter);
+#if DEBUG
+         //AcConsole.Write($"Join() => " +
+         //   $"{result.ToString()}");
+#endif
+         return result;
       }
 
       public static Expression<Func<T, bool>> Not<T>(this Expression<Func<T, bool>> expression)

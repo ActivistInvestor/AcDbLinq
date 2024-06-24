@@ -187,19 +187,25 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          Database db = doc.Database;
          using(Transaction tr = doc.TransactionManager.StartTransaction())
          {
+
+            // Define a filter that collects all insertions of blocks
+            // having names that start with "DESK":
+
             var blockFilter = new BlockFilter(btr => btr.Name.Matches("DESK*"));
 
-            /// Define a filter that excludes block references on locked layers:
+            /// Define a filter that excludes block references on 
+            /// locked layers:
 
             var layerFilter = new DBObjectFilter<BlockReference, LayerTableRecord>(
                btr => btr.LayerId, layer => !layer.IsLocked);
 
-            /// The And() method joins the two filters in a
-            /// logical 'and' operation:
+            // Logically-join the two filters using the And() method:
+            
             var desks = db.GetModelSpaceObjects<BlockReference>(tr)
                .Where(blockFilter.And(layerFilter));
 
             // Get the ObjectIds of the resulting block references:
+            
             var ids = desks.Select(br => br.ObjectId).ToArray();
             doc.Editor.WriteMessage($"\nFound {ids.Length} DESK blocks.");
 
@@ -234,15 +240,29 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             var layerFilter = new DBObjectFilter<BlockReference, LayerTableRecord>(
                btr => btr.LayerId, layer => !layer.IsLocked);
 
-            /// Use the And() method to join the two filters 
-            /// in a logical 'and' operation:
-            
+            /// Add an additional condition to the LayerFilter
+            /// predicate that's applied to each LayerTableRecord, 
+            /// requiring the layer's name to start with "FURNITURE":
+
+            layerFilter.Expression.And(layer => layer.Name.Matches("FURNITURE*"));
+
+            // Logically-join the blockFilter and
+            // layerFilter using the And() method:
+
             var filter = blockFilter.And(layerFilter);
+
+            // At this point, the blockFilter and layerFilter are
+            // both obsolete, and the result of And() (assigned to
+            // the 'filter' variable above) represents the logical
+            // union of the two filters. Hence, each BlockReference
+            // must now satisfy the conditions of both filters in
+            // order to be included in the result.
             
             var desks = db.GetModelSpaceObjects<BlockReference>(tr).Where(filter);
 
             /// Erase all DOOR blocks that are not on a locked layer,
-            /// this time using the Erase() extension method:
+            /// this time using the Erase() extension method from 
+            /// EntityExtensions.cs:
             
             int count = desks.UpgradeOpen().Erase();
 

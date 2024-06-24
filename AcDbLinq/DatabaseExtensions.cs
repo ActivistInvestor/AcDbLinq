@@ -15,6 +15,7 @@ using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Runtime.Diagnostics;
 using Autodesk.AutoCAD.DatabaseServices.Extensions;
 using AcRx = Autodesk.AutoCAD.Runtime;
+using System.Runtime.InteropServices;
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {
@@ -854,6 +855,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// exclude all nested objects (e.g., those that are not directly 
       /// owned by a layout block).
       /// 
+      /// Because GetBlockReferences() returns all insertions of the target
+      /// block, it is not uncommon to require only those that are directly
+      /// inserted into a layout (paper or model space), rather than those
+      /// that are nested within other blocks. This method can be useful to
+      /// filter out/exclude nested block references.
+      /// 
       /// It's recommended that the source sequence be opened for read, and 
       /// the results of this method then be upgraded to OpenMode.ForWrite,
       /// which can be easily accomplished using the included UpgradeOpen() 
@@ -878,14 +885,97 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// </summary>
       /// <param name="source">An object that enumerates Entities</param>
       /// <returns>The subset of the source sequence consisting of only 
-      /// those elements that are directly owned by a layout block.</returns>
+      /// elements that are directly owned by a layout block.</returns>
 
       public static IEnumerable<T> ExceptNested<T>(this IEnumerable<T> source)
          where T : Entity
       {
          Assert.IsNotNull(source, nameof(source));
-         return source.Where(new DBObjectFilter<T, BlockTableRecord>(
-            entity => entity.BlockId, btr => btr.IsLayout));
+         return source.Where(new LayoutOwnerFilter());
+      }
+
+      // Used by ExceptNested():
+      //
+      // A filter that excludes nested entities
+      // (e.g., those that are not directly-owned
+      // by a layout block):
+
+      class LayoutOwnerFilter : DBObjectFilter<Entity, BlockTableRecord> 
+      {
+         public LayoutOwnerFilter()
+            : base(ent => ent.BlockId, btr => btr.IsLayout) { }
+      }
+
+      public static bool IsPaperSpaceBlock(this BlockTableRecord btr)
+      {
+         Assert.IsNotNullOrDisposed(btr, nameof(btr));
+         Assert.IsNotNullOrDisposed(btr.Database, nameof(Database));
+         return btr.IsLayout && btr.ObjectId !=
+            SymbolUtilityServices.GetBlockModelSpaceId(btr.Database);
+      }
+
+      /// <summary>
+      /// SymbolUtilityServices extensions
+      /// </summary>
+      
+      public static ObjectId GetModelSpaceBlockId(this Database db)
+      {
+         Assert.IsNotNullOrDisposed(db, nameof(db));
+         return SymbolUtilityServices.GetBlockModelSpaceId(db);
+      }
+
+      public static ObjectId GetBlockPaperSpaceId(this Database db)
+      {
+         Assert.IsNotNullOrDisposed(db, nameof(db));
+         return SymbolUtilityServices.GetBlockPaperSpaceId(db);
+      }
+
+      public static ObjectId GetLinetypeByBlockId(this Database db)
+      {
+         Assert.IsNotNullOrDisposed(db, nameof(db));
+         return SymbolUtilityServices.GetLinetypeByBlockId(db);
+      }
+
+      public static ObjectId GetLinetypeByLayerId(this Database db)
+      {
+         Assert.IsNotNullOrDisposed(db, nameof(db));
+         return SymbolUtilityServices.GetLinetypeByLayerId(db);
+      }
+
+      public static ObjectId GetLinetypeContinuousId(this Database db)
+      {
+         Assert.IsNotNullOrDisposed(db, nameof(db));
+         return SymbolUtilityServices.GetLinetypeContinuousId(db);
+      }
+
+      public static ObjectId GetRegAppAcadId(this Database db)
+      {
+         Assert.IsNotNullOrDisposed(db, nameof(db));
+         return SymbolUtilityServices.GetRegAppAcadId(db);
+      }
+
+      public static ObjectId GetTextStyleStandardId(this Database db)
+      {
+         Assert.IsNotNullOrDisposed(db, nameof(db));
+         return SymbolUtilityServices.GetTextStyleStandardId(db);
+      }
+
+      public static ObjectId GetLayerDefpointsId(this Database database)
+      {
+         Assert.IsNotNullOrDisposed(database, nameof(database));
+         return SymbolUtilityServices.GetLayerDefpointsId(database);
+      }
+
+      public static ObjectId GetLayerZeroId(this Database database)
+      {
+         Assert.IsNotNullOrDisposed(database, nameof(database));
+         return SymbolUtilityServices.GetLayerZeroId(database);
+      }
+
+      public static bool IsCompatibilityMode(this Database database)
+      {
+         Assert.IsNotNullOrDisposed(database, nameof(database));
+         return SymbolUtilityServices.IsCompatibilityMode(database);
       }
 
       /// <summary>
@@ -897,7 +987,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <param name="source">The input sequence of entities</param>
       /// <returns>The subset of the input sequence that are
       /// contained in the layout with the given name.</returns>
-      
+
       public static IEnumerable<T> FromLayout<T>(this IEnumerable<T> source, string LayoutName) 
          where T : Entity
       {
@@ -912,6 +1002,10 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          var blockId = layoutId.Invoke<Layout, ObjectId>(layout => layout.BlockTableRecordId);
          return source.Where(e => e.BlockId == blockId);
       }
+
+      /// <summary>
+      /// Try to get the containing Database of a sequence of DBObjects
+      /// </summary>
 
       public static Database TryGetDatabase(this IEnumerable<DBObject> objects)
       {
@@ -969,7 +1063,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// the given Database whose names match the given wildcard
       /// pattern, excluding references to blocks that are:
       /// 
-      ///   Anonymous (except dynamic anonymous blocks)
+      ///   Non-dynamic Anonymous blocks
       ///   Layouts 
       ///   External references/overlays
       ///   Blocks from external references/overlays.
