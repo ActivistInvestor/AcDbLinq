@@ -74,12 +74,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// need to repeatedly open the LayerTableRecord to get it:
    /// <code>
    /// 
-   ///  var lockedLayers = new DBObjectDataCache<Entity, LayerTableRecord, bool>(
+   ///  var lockedLayers = new DBObjectDataMap<Entity, LayerTableRecord, bool>(
    ///        entity => entity.LayerId, 
    ///        layer => layer.IsLocked );
    ///      
    /// </code>
-   /// DBObjectDataCache doesn't know anything about what it caches;
+   /// DBObjectDataMap doesn't know anything about what it caches;
    /// where it comes from; or where the keys that are used to lookup 
    /// cached data come from, so it requires two delegates that do
    /// those things. In the above constructor call, the first delegate
@@ -89,7 +89,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// in the cache using that ObjectId as a key. 
    /// 
    /// If data for the ObjectId is found in the cache, it is returned. 
-   /// Otherwise, the DBObjectDataCache opens the DBObject referenced by 
+   /// Otherwise, the DBObjectDataMap opens the DBObject referenced by 
    /// the ObjectId and passes the opened DBObject to the second delegate 
    /// (which takes a LayerTableRecord as its argument) which returns the 
    /// data that is to be cached, keyed to the ObjectId returned by the 
@@ -109,7 +109,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    ///    
    /// Lifetime and automated cache management:
    /// 
-   /// The life of a DBObjectDataCache is typically the life of whatever
+   /// The life of a DBObjectDataMap is typically the life of whatever
    /// operations it is used with, and should not extend beyond the point 
    /// where the possiblity that objects whose data has been cached can be 
    /// modified. Once a DBObject whose data has been cached is modified, 
