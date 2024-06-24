@@ -11,24 +11,25 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// <summary>
    /// This is merely an example showing how to write 
    /// 'Linq-friendly' extension methods to perform 
-   /// common operations on multiple entities expressed 
-   /// as an IEnumerable<T>.
+   /// common operations on multiple entities that take
+   /// form of an IEnumerable<DBObject>.
    /// </summary>
 
    public static partial class EntityExtensions
    {
       /// <summary>
       /// Erases all entities in the sequence. 
-      /// They should be open for write.
+      /// They should be open for write. 
       /// </summary>
 
-      public static int Erase(this IEnumerable<Entity> entities, bool erase = true)
+      public static int Erase(this IEnumerable<DBObject> objects, bool erase = true)
       {
-         Assert.IsNotNull(entities, nameof(entities));
+         Assert.IsNotNull(objects, nameof(objects));
          int count = 0;
-         foreach(Entity entity in entities)
+         foreach(DBObject obj in objects)
          {
-            entity.Erase(erase);
+            Assert.IsNotNullOrDisposed(obj, nameof(obj));
+            obj.Erase(erase);
             count++;
          }
          return count;
