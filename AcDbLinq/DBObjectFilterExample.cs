@@ -175,12 +175,10 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       [CommandMethod("ERASEDESKS", CommandFlags.Redraw)]
       public static void EraseDesks()
       {
-         Document doc = Application.DocumentManager.MdiActiveDocument;
-         Database db = doc.Database;
-         using(var tr = new DocTransaction())
+         using(var doc = new DocTransaction())
          {
             var deskFilter = new BlockFilter(btr => btr.Name.Matches("DESK*"));
-            var desks = tr.GetModelSpaceObjects<BlockReference>().Where(deskFilter);
+            var desks = doc.GetModelSpaceObjects<BlockReference>().Where(deskFilter);
 
             int cnt = 0;
             foreach(BlockReference blockref in desks.UpgradeOpen())
@@ -188,7 +186,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
                blockref.Erase();
                ++cnt;
             }
-            tr.Commit();
+            doc.Commit();
 
             doc.Editor.WriteMessage($"Found and erased {cnt} DESK blocks");
          }
@@ -196,17 +194,14 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       /// <summary>
       /// The following variations of the above two commands introduce 
-      /// a second filter that excludes all block references on locked
-      /// layers. The two filters are joined in a logical 'and' operation 
-      /// allowing them to work as a single, complex filter.
+      /// a second DBObjectFilter that excludes all block references on 
+      /// locked layers. The two filters are joined in a logical 'and' 
+      /// operation allowing them to work as a single, complex filter.
       /// </summary>
 
       [CommandMethod("SELECTDESKS2")]
       public static void SelectDesks2()
       {
-         Document doc = Application.DocumentManager.MdiActiveDocument;
-         Database db = doc.Database;
-
          /// A DocTransaction combines the functionality of
          /// a transaction and the broad range of operations
          /// provided by the extension methods of the Database 
@@ -215,7 +210,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          /// All extension methods that target the Database
          /// class are also instance members of DocTransaction.
 
-         using(var tr = new DocTransaction())
+         using(var doc = new DocTransaction())
          {
 
             // Define a filter that collects all insertions of blocks
@@ -232,13 +227,13 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             // Use the And() method to add the layerFilter's
             // critieria to the block filter:
 
-            var desks = tr.GetModelSpaceObjects<BlockReference>()
+            var desks = doc.GetModelSpaceObjects<BlockReference>()
                .Where(blockFilter.And(layerFilter));
 
             // Note that the above use of the And() method to combine
             // the criteria of both filters is equivalent to this:
 
-            desks = tr.GetModelSpaceObjects<BlockReference>()
+            desks = doc.GetModelSpaceObjects<BlockReference>()
                .Where(br => blockFilter.IsMatch(br) && layerFilter.IsMatch(br));
 
             // Get the ObjectIds of the resulting block references:
@@ -250,14 +245,14 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             if(ids.Length > 0)
                doc.Editor.SetImpliedSelection(ids);
 
-            tr.Commit();
+            doc.Commit();
          }
       }
 
       /// <summary>
-      /// Erases all insertions of blocks having names starting
-      /// with "DESK" in model space that reside on the layer 
-      /// "FURNITURE", and are not on a locked layer:
+      /// Erases all insertions of blocks in model space having 
+      /// names starting with "DESK" residing on unlocked layers 
+      /// whose names start with "FURNITURE".
       /// 
       /// This example shows how to add an additional condition 
       /// to the query criteria used to qualify objects to be
@@ -267,14 +262,16 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// The example also uses a specialization of DBObjectFilter
       /// to filter entities based on properties of the layer they 
       /// reside on.
+      /// 
+      /// Also note that because this command is registered to run
+      /// in the application context, implicit document locking is
+      /// performed by the DocTransaction.
       /// </summary>
 
-      [CommandMethod("ERASEDESKS2")]
+      [CommandMethod("ERASEDESKS2", CommandFlags.Session)]
       public static void EraseDesks2()
       {
-         Document doc = Application.DocumentManager.MdiActiveDocument;
-         Database db = doc.Database;
-         using(var tr = new DocTransaction())
+         using(var doc = new DocTransaction())
          {
             /// Define a filter that includes only block 
             /// references having names starting with 'DESK'.
@@ -331,7 +328,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             // conditions to be used to determine what critiera is used
             // to filter objects.
             
-            var desks = tr.GetModelSpaceObjects<BlockReference>().Where(blockFilter);
+            var desks = doc.GetModelSpaceObjects<BlockReference>().Where(blockFilter);
 
             /// Erase all uniformly-scaled DESK blocks that are on 
             /// a locked layer whose name starts with "FURNITURE",
@@ -340,7 +337,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             
             int count = desks.UpgradeOpen().Erase();
 
-            tr.Commit();
+            doc.Commit();
 
             doc.Editor.WriteMessage($"Found and erased {count} DESK blocks");
          }

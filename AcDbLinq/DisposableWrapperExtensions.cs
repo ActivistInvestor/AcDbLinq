@@ -9,11 +9,7 @@ using System;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Runtime.Diagnostics;
 
-/// Alternate pattern that uses a custom Transaction
-/// as the invocation target for Database extension 
-/// methods provided by methods of this library.
-
-namespace Autodesk.AutoCAD.DatabaseServices.Extensions
+namespace Autodesk.AutoCAD.Runtime.Extensions
 {
    public static class DisposableWrapperExtensions
    {
@@ -23,6 +19,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <param name="wrapper"></param>
       /// <param name="replacement"></param>
       /// <exception cref="InvalidOperationException"></exception>
+
       public static void ReplaceWith(this DisposableWrapper wrapper, DisposableWrapper replacement)
       {
          Assert.IsNotNullOrDisposed(wrapper, nameof(wrapper));

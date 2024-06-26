@@ -11,10 +11,12 @@ using System.Linq;
 using Autodesk.AutoCAD.Runtime.Diagnostics;
 using AcRx = Autodesk.AutoCAD.Runtime;
 using System.Windows.Controls;
+using Autodesk.AutoCAD.Runtime.Extensions;
+using Autodesk.AutoCAD.ApplicationServices;
 
-/// Alternate pattern that uses a custom Transaction
-/// as the invocation target for Database extension 
-/// methods provided by methods of this library.
+/// Alternate pattern that allows the use of a custom 
+/// Transaction to serve as the invocation target for 
+/// Database extension methods provided by this library.
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {
@@ -30,29 +32,39 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// methods to be called without the need to pass a Transaction or a
    /// Database as arguments.
    /// 
+   /// If the Database argument's AutoDelete property is true (meaning it 
+   /// is not a Database that is open in the Editor), the constructor will 
+   /// set that Database to the current working database, and will restore 
+   /// the previous working database when the instance is disposed.
    /// </summary>
 
    public class DBTransaction : Transaction
    {
       Database db;
-      TransactionManager manager = null;  // AcDb.TransactionManager
+      TransactionManager manager = null;    // AcDb.TransactionManager
+      Database prevWorkingDb = null;
+      protected static readonly DocumentCollection Documents = Application.DocumentManager;
 
-      public DBTransaction(Database db) : base(new IntPtr(-1), false)
+      public DBTransaction(Database db, bool asWorkingDb = true) : base(new IntPtr(-1), false)
       {
          Assert.IsNotNull(db, nameof(db));
          this.db = db;
          this.manager = db.TransactionManager;
+         if(asWorkingDb && db.AutoDelete && HostApplicationServices.WorkingDatabase != db)
+         {
+            prevWorkingDb = HostApplicationServices.WorkingDatabase;
+            HostApplicationServices.WorkingDatabase = db;
+         }
          manager.StartTransaction().ReplaceWith(this);
       }
 
-      protected DBTransaction(Database db, TransactionManager mgr) 
+      protected DBTransaction(Database db, TransactionManager mgr)
          : base(new IntPtr(-1), false)
       {
          Assert.IsNotNullOrDisposed(db, nameof(db));
          Assert.IsNotNullOrDisposed(mgr, nameof(mgr));
          this.db = db;
          this.manager = mgr;
-         mgr.StartTransaction().ReplaceWith(this);
       }
 
       public Database Database => db;
@@ -72,6 +84,16 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             Commit();
          else
             base.Abort();
+      }
+
+      protected override void Dispose(bool disposing)
+      {
+         if(disposing && prevWorkingDb != null)
+         {
+            HostApplicationServices.WorkingDatabase = prevWorkingDb;
+            prevWorkingDb = null;
+         }
+         base.Dispose(disposing);
       }
 
       public override TransactionManager TransactionManager => manager;
@@ -95,11 +117,16 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// the included methods to perform operations on a database.
       /// 
       /// By using an instance of this class in lieu of Transaction,
-      /// any of methods that follow can be called without requiring 
+      /// any of the methods below can be called without requiring 
       /// a Database or Transaction argument.
       /// 
       /// See the docs for methods of the DatabaseExtensions class
-      /// for more information on these APIs.
+      /// for more information on these APIs. The main difference
+      /// between these methods and the equivalent methods of the
+      /// DatabaseExtensions class, is that all methods of this type
+      /// replace the Database as the invocation target with the 
+      /// instance of this type, and omit all Transaction arguments.
+
 
       public IEnumerable<T> GetModelSpaceObjects<T>(
          OpenMode mode = OpenMode.ForRead,
