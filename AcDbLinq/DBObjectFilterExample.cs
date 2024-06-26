@@ -18,6 +18,10 @@ using Autodesk.AutoCAD.Runtime;
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {
+   /// The docs for DBObjectFilter showed a simple example of
+   /// a DBObjectFilter that filters entities based on if the
+   /// layer they reside on/reference is locked.
+   /// 
    /// DBObjectFilter is not only applicable to entities and
    /// LayerTableRecords. The generic arguments are what allow
    /// it to be used for many similar use cases as well.
@@ -26,7 +30,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// "effective name". The filter resolves anonymous dynamic 
    /// blocks to their dynamic block definition, allowing its 
    /// name to be filtered against for both references to the
-   /// dynamic block definition, and references to all anonymous
+   /// dynamic block definition, and references to anonymous
    /// variations of it. This example will include references
    /// to all blocks having names that start with "DESK":
    ///
@@ -73,9 +77,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
    }
 
-   /// And a second variant that resolves dynamic references
-   /// to the dynamic block definition:
-   /// 
+   /// And a second variant that resolves anonymous dynamic 
+   /// block references to the dynamic block definition:
 
    public class BlockFilter : DBObjectFilter<BlockReference, BlockTableRecord>
    {
@@ -86,8 +89,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    }
 
    /// <summary>
-   /// And a specialization for filtering entities based on properties
-   /// of the layer they reside on:
+   /// A specialization of DBObjectFilter that filters entities 
+   /// based on properties of the layer they reference/reside on:
    /// </summary>
 
    public class LayerFilter<T> : DBObjectFilter<T, LayerTableRecord> where T : Entity
@@ -97,8 +100,6 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       {
       }
    }
-
-
 
    /// <summary>
    /// What's not obvious from the above examples, is how efficient
@@ -138,9 +139,10 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
          var deskFilter = new BlockFilter(btr => btr.Name.Matches("DESK*"));
 
-         Document doc = Application.DocumentManager.MdiActiveDocument;
-         Database db = doc.Database;
-         using(DocTransaction tr = new DocTransaction())
+         // We'll use a DocTransaction to simplify the operation.
+         // The default constructor uses the active document:
+
+         using(var tr = new DocTransaction())
          {
             // Rather than having to write dozens of lines of
             // code, using the BlockFilter and a helper method
@@ -153,11 +155,14 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             // Get the ObjectIds of the resulting block references:
 
             var ids = desks.Select(br => br.ObjectId).ToArray();
-            doc.Editor.WriteMessage($"\nFound {ids.Length} DESK blocks.");
+
+            tr.Editor.WriteMessage($"\nFound {ids.Length} DESK blocks.");
 
             // Select the resulting block references:
+
             if(ids.Length > 0)
-               doc.Editor.SetImpliedSelection(ids);
+               tr.Editor.SetImpliedSelection(ids);
+
             tr.Commit();
          }
       }
@@ -292,7 +297,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             /// on an unlocked layer whose name starts with "FURNITURE"
             /// will be included.
 
-            layerFilter.Source.And(layer => layer.Name.Matches("FURNITURE*"));
+            layerFilter.SourcePredicate.And(layer => layer.Name.Matches("FURNITURE*"));
 
             /// Add an additional condition to the blockFilter
             /// that excludes block references that are non-

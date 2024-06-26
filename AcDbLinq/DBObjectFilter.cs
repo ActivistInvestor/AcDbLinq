@@ -120,19 +120,19 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       where TValueSource : DBObject
 
    {
-      Expression<Func<TValueSource, bool>> expression;
+      Expression<Func<TValueSource, bool>> valueSelectorExpr;
       ExpressionProperty expressionProperty;
 
       public DBObjectFilter(Func<TKeySource, ObjectId> keySelector,
                               Expression<Func<TValueSource, bool>> valueSelector)
          : base(keySelector, valueSelector.Compile())
       {
-         this.expression = valueSelector;
+         this.valueSelectorExpr = valueSelector;
       }
 
       public Func<TKeySource, bool> Predicate => Accessor;
 
-      public ExpressionProperty Source 
+      public ExpressionProperty SourcePredicate 
       { 
          get 
          {
@@ -174,36 +174,33 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       /// <summary>
-      /// Like And() and Or(), but also allows a way to control
-      /// the order of the operations.
+      /// Like And() and Or(), but reverses the order of evaluation.
       /// 
-      /// If reverse is true, the operand expression is evaluated 
-      /// before the instance expression. Otherwise, the instance 
-      /// expression is evaluated before the operand expression.
+      /// With And() and Or(), the instance expression is evaluated
+      /// first, and it evaluates to true, the operand expression is
+      /// then evaluated.
+      /// 
+      /// With RevAnd() and RevOr(), the operand expression is
+      /// evaluated first and if it evaluates to true, the instance
+      /// expression is then evaluated.
       /// </summary>
       /// <param name="reverse">A value indicating if the operand
       /// expression is evaluated before the instance expression.</param>
       /// <param name="operand">The operand expression</param>
       
-      public DBObjectFilter<TKeySource, TValueSource> And(bool reverse, 
+      public DBObjectFilter<TKeySource, TValueSource> RevAnd(
          Expression<Func<TKeySource, bool>> operand)
       {
          Assert.IsNotNull(operand, nameof(operand));
-         if(reverse)
-            GetValueExpression = operand.And(GetValueExpression);
-         else
-            GetValueExpression = GetValueExpression.Or(operand);
+         GetValueExpression = operand.And(GetValueExpression);
          return this;
       }
 
-      public DBObjectFilter<TKeySource, TValueSource> Or(bool reverse, 
+      public DBObjectFilter<TKeySource, TValueSource> RevOr(
          Expression<Func<TKeySource, bool>> operand)
       {
          Assert.IsNotNull(operand, nameof(operand));
-         if(reverse)
-            GetValueExpression = operand.Or(GetValueExpression);
-         else
-            GetValueExpression = GetValueExpression.Or(operand);
+         GetValueExpression = operand.Or(GetValueExpression);
          return this;
       }
 
@@ -238,20 +235,41 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          public void And(Expression<Func<TValueSource, bool>> operand)
          {
             Assert.IsNotNull(operand, nameof(operand));
-            owner.expression = owner.expression.And(operand);
-            owner.valueSelector = owner.expression.Compile();
+            owner.valueSelectorExpr = owner.valueSelectorExpr.And(operand);
+            owner.valueSelector = CompileOnInvoke;
          }
 
          public void Or(Expression<Func<TValueSource, bool>> operand)
          {
             Assert.IsNotNull(operand, nameof(operand));
-            owner.expression = owner.expression.Or(operand);
-            owner.valueSelector = owner.expression.Compile();
+            owner.valueSelectorExpr = owner.valueSelectorExpr.Or(operand);
+            owner.valueSelector = CompileOnInvoke;
+         }
+
+         public void RevAnd(Expression<Func<TValueSource, bool>> operand)
+         {
+            Assert.IsNotNull(operand, nameof(operand));
+            owner.valueSelectorExpr = operand.And(owner.valueSelectorExpr);
+            owner.valueSelector = CompileOnInvoke;
+         }
+
+         public void RevOr(Expression<Func<TValueSource, bool>> operand)
+         {
+            Assert.IsNotNull(operand, nameof(operand));
+            owner.valueSelectorExpr = operand.Or(owner.valueSelectorExpr);
+            owner.valueSelector = CompileOnInvoke;
+         }
+
+         bool CompileOnInvoke(TValueSource arg)
+         {
+            owner.valueSelector = owner.valueSelectorExpr.Compile();
+            owner.Invalidate();
+            return owner.valueSelector(arg);
          }
 
          public static implicit operator Expression<Func<TValueSource, bool>>(ExpressionProperty operand)
          {
-            return operand?.owner?.expression;
+            return operand?.owner?.valueSelectorExpr;
          }
       }
 

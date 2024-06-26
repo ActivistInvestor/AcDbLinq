@@ -191,9 +191,15 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          }
       }
 
+      /// <summary>
+      /// Compiles a modified expression the first
+      /// time the resulting delegate is called. 
+      /// </summary>
+
       TValue CompileAndInvoke(TKeySource arg)
       {
          getValue = getValueExpression.Compile();
+         Invalidate();
          return getValue(arg);
       }
 
