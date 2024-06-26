@@ -11,7 +11,8 @@ namespace System.Linq.Expressions.Predicates
    /// <summary>
    /// A class that encapsulates an Expression<Func<T, bool>>
    /// that supports performing various logical operations on 
-   /// them using binary operator syntax.
+   /// them using binary operator syntax and lazy/just-in-time
+   /// compilation/execution.
    /// /// </summary>
 
    public struct PredicateExpression<T>
@@ -59,10 +60,10 @@ namespace System.Linq.Expressions.Predicates
       /// 
       ///   var expr = PredicateExpression<int>.Empty;
       ///   
-      ///   expr |= x => x > 10;
-      ///   expr |= x < 5;
+      ///   expr |= x => x > 10;             // x is > 10
+      ///   expr |= x < 5;                   // x is < 5
       ///   
-      ///      ->  x => x > 10 || x < 5;
+      ///      ->  x => x > 10 || x < 5;     // x > 10 or < 5
       /// 
       /// </code>
       /// 

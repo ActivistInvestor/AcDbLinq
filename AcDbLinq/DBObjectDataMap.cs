@@ -8,10 +8,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
+using System.Linq.Expressions.Predicates;
 using Autodesk.AutoCAD.ApplicationServices.Core;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Runtime.Diagnostics;
 using AcRx = Autodesk.AutoCAD.Runtime;
+
+#pragma warning disable CS0618 // Type or member is obsolete
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {
@@ -42,15 +46,17 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// Consider the relationship between Entities and Layers.
    /// Every entity references a layer. Every layer can be
    /// referenced by many entities, and so the Entity is the 
-   /// referencing object and LayerTableRecord is the referenced 
-   /// object. This class allows you to access data obtained from 
-   /// the referenced object (a LayerTableRecord), through the 
+   /// referencing object and LayerTableRecord is the object
+   /// that's referenced by the referencing object. 
+   /// 
+   /// This class allows you to access data obtained from a 
+   /// referenced object (a LayerTableRecord), through any
    /// referencing object (entities). Because the referencing 
    /// objects have a many-to-one relationship with referenced 
-   /// objects (e.g., many entities can reference the same layer), 
-   /// this class models that relationship and provides an access 
-   /// layer that allows referencing objects to quickly access 
-   /// data obtained from the objects they reference.
+   /// objects (e.g., many entities reference the same layer), 
+   /// this class models that relationship, providing an access 
+   /// layer allowing code to access data of referenced objects 
+   /// through objects that reference them.
    /// 
    /// The <typeparamref name="TKeySource"/>> object is used to
    /// obtain an ObjectId that is used as the key to store the
@@ -76,7 +82,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// 
    ///  var lockedLayers = new DBObjectDataMap<Entity, LayerTableRecord, bool>(
    ///        entity => entity.LayerId, 
-   ///        layer => layer.IsLocked );
+   ///        layer => layer.IsLocked
+   ///  );
    ///      
    /// </code>
    /// DBObjectDataMap doesn't know anything about what it caches;
@@ -115,6 +122,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// modified. Once a DBObject whose data has been cached is modified, 
    /// the cached data is no-longer considered valid.
    /// 
+   /// Note: The following documentation applies to a specialization
+   /// of DBObjectDataMap that is not yet included in this distribution:
+   /// 
    /// However, in specialized/advanced use cases it is possible to allow
    /// an instance of this type to persist across changes to DBObjects whose
    /// data has been cached in an instance, by setting the ObserveChanges
@@ -139,8 +149,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       where TKeySource : DBObject
       where TValueSource : DBObject
    {
-      Dictionary<ObjectId, TValue> map =
-         new Dictionary<ObjectId, TValue>();
+      Dictionary<ObjectId, TValue> map = null;
+
+      Func<TKeySource, TValue> getValue = null;
+      protected Func<TKeySource, TValue> GetValueMethod => getValue;
+
+      Expression<Func<TKeySource, TValue>> getValueExpression = null;
 
       protected Dictionary<ObjectId, TValue> Map => map;
       protected Func<TKeySource, ObjectId> keySelector;
@@ -153,8 +167,29 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       {
          Assert.IsNotNull(keySelector, nameof(keySelector));
          Assert.IsNotNull(valueSelector, nameof(valueSelector));
+         this.map = CreateMap();
          this.keySelector = keySelector;
          this.valueSelector = valueSelector;
+         this.GetValueExpression = arg => GetValue(arg);
+      }
+
+      protected virtual Dictionary<ObjectId, TValue> CreateMap()
+      {
+         return new Dictionary<ObjectId, TValue>();
+      }
+
+      protected Expression<Func<TKeySource, TValue>> GetValueExpression
+      {
+         get { return getValueExpression; }
+         set
+         {
+            Assert.IsNotNull(value, nameof(value));
+            if(getValueExpression != value)
+            {
+               getValueExpression = value;
+               getValue = getValueExpression.Compile();
+            }
+         }
       }
 
       /// <summary>
@@ -165,14 +200,14 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// associated value is to be retrieved.</param>
       /// <returns>The associated value</returns>
 
-      public TValue this[TKeySource key] => GetValue(key);
+      public TValue this[TKeySource key] => getValue(key);
 
       /// <summary>
       /// The implicit conversion operator returns the value
       /// of this, which is the method called by the indexer.
       /// </summary>
 
-      public Func<TKeySource, TValue> Accessor => GetValue;
+      public /*virtual*/ Func<TKeySource, TValue> Accessor => getValue;
 
       /// <summary>
       /// This method is not directly callable from the 
@@ -186,7 +221,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <returns>The TValue for the given <paramref name="keySource"/></returns>
       /// <exception cref="AcRx.Exception"></exception>
 
-      protected TValue GetValue(TKeySource keySource)
+      TValue GetValue(TKeySource keySource)
       {
          ObjectId id = keySelector(keySource);
          if(id.IsNull)
@@ -199,7 +234,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <summary>
       /// If the keySelector returns ObjectId.Null, this
       /// will be called to provide a value (or throw an
-      /// exception if needed).
+      /// exception, if appropriate).
       /// 
       /// In the EffectiveColorMap, the keySelector returns
       /// ObjectId.Null to signal that the entity argument's
@@ -212,7 +247,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       protected virtual TValue GetDefaultValue(TKeySource keySource)
       {
-         throw new KeyNotFoundException();
+         throw new AcRx.Exception(AcRx.ErrorStatus.NullObjectId);
       }
 
       /// <summary>

@@ -130,9 +130,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          this.expression = valueSelector;
       }
 
-      public Func<TKeySource, bool> Predicate => GetValue;
+      public Func<TKeySource, bool> Predicate => GetValueMethod;
 
-      public ExpressionProperty Expression 
+      public ExpressionProperty Source 
       { 
          get 
          {
@@ -146,22 +146,64 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// Combines this filter with another DBObjectFilter<TKeySource,...>
       /// in a logical 'and' or 'or' operation. Can also combine the filter
       /// with an arbitrary Expression<Func<TKeySource, bool>>.
+      /// 
+      /// This method does not modify the instance. It returns an
+      /// expression that can be compiled to produce a delegate that
+      /// can be invoked in place of the filter's IsMatch() method. 
+      /// 
+      /// The returned expression superseeds the instance, which 
+      /// doesn't incorporate any additional conditions specified
+      /// by the argument.
+      /// 
+      /// Further modification of the returned expression can be
+      /// done using extension methods of the ExpressionBuilder
+      /// and PredicateExpression class, but the 
+      /// 
       /// </summary>
       /// <param name="operand"></param>
       /// <returns></returns>
 
-      public PredicateExpression<TKeySource> And(Expression<Func<TKeySource, bool>> operand)
+      public DBObjectFilter<TKeySource, TValueSource> And(
+         Expression<Func<TKeySource, bool>> operand)
       {
          Assert.IsNotNull(operand, nameof(operand));
-         Expression<Func<TKeySource, bool>> current = this;
-         return current.And(operand);
+         GetValueExpression = GetValueExpression.And(operand);
+         return this;
       }
 
-      public PredicateExpression<TKeySource> Or(Expression<Func<TKeySource, bool>> operand)
+      public DBObjectFilter<TKeySource, TValueSource> Or(
+         Expression<Func<TKeySource, bool>> operand)
       {
          Assert.IsNotNull(operand, nameof(operand));
-         Expression<Func<TKeySource, bool>> current = this;
-         return current.Or(operand);
+         GetValueExpression = GetValueExpression.Or(operand);
+         return this;
+      }
+
+      /// <summary>
+      /// If reverse is true, the operand is evaluated before
+      /// the instance expression. Otherwise, the instance 
+      /// expression is evaluated before the operand.
+      /// </summary>
+      /// <param name="reverse">A value indicating if the operand
+      /// expression is evaluated before the instance expression.</param>
+      /// <param name="operand">The operand expression</param>
+      
+      public virtual void And(bool reverse, Expression<Func<TKeySource, bool>> operand)
+      {
+         Assert.IsNotNull(operand, nameof(operand));
+         if(reverse)
+            GetValueExpression = operand.And(GetValueExpression);
+         else
+            GetValueExpression = GetValueExpression.Or(operand);
+      }
+
+      public virtual void Or(bool reverse, Expression<Func<TKeySource, bool>> operand)
+      {
+         Assert.IsNotNull(operand, nameof(operand));
+         if(reverse)
+            GetValueExpression = operand.Or(GetValueExpression);
+         else
+            GetValueExpression = GetValueExpression.Or(operand);
       }
 
       public void SourceAnd(Expression<Func<TValueSource, bool>> operand)
@@ -184,7 +226,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       public bool IsMatch(TKeySource candidate)
       {
-         return GetValue(candidate);
+         return GetValueMethod(candidate);
       }
 
       public static implicit operator Func<TKeySource, bool>(DBObjectFilter<TKeySource, TValueSource> filter)
@@ -193,15 +235,23 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return filter.Accessor;
       }
 
-      public static implicit operator Func<TValueSource, bool>(DBObjectFilter<TKeySource, TValueSource> filter)
-      {
-         Assert.IsNotNull(filter, nameof(filter));
-         return filter.valueSelector;
-      }
+      /// <summary>
+      /// Potential bug here: Because the returned delegate is 
+      /// invoked by a virtual method that can be overridden to 
+      /// take a different path - this delegate cannot be used
+      /// from the outside. disabled.
+      /// </summary>
+      /// <param name="filter"></param>
+      //public static implicit operator Func<TValueSource, bool>(DBObjectFilter<TKeySource, TValueSource> filter)
+      //{
+      //   Assert.IsNotNull(filter, nameof(filter));
+      //   return filter.valueSelector;
+      //}
 
-      public static implicit operator Expression<Func<TKeySource, bool>>(DBObjectFilter<TKeySource, TValueSource> filter)
+      public static implicit operator 
+      Expression<Func<TKeySource, bool>>(DBObjectFilter<TKeySource, TValueSource> filter)
       {
-         return arg => filter.GetValue(arg);
+         return filter.GetValueExpression;
       }
 
       public class ExpressionProperty

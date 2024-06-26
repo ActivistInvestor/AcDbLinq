@@ -5,8 +5,10 @@
 /// Distributed under the terms of the MIT license.
 
 using System;
+using System.Windows;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Internal;            // Utils.WcMatchEx()
+using Autodesk.AutoCAD.Runtime.Diagnostics;
 using AcRx = Autodesk.AutoCAD.Runtime;
 
 namespace Autodesk.AutoCAD.Runtime
@@ -52,13 +54,13 @@ namespace Autodesk.AutoCAD.Runtime
       public static void ThrowIf(this AcRx.ErrorStatus es, bool condition, string msg = "")
       {
          if(condition)
-            throw new AcRx.Exception(es, msg);
+            throw new AcRx.Exception(es, msg).Log(es, condition, msg);
       }
 
       public static void ThrowIfNot(this AcRx.ErrorStatus es, bool condition, string msg = "")
       {
          if(!condition)
-            throw new AcRx.Exception(es, msg);
+            throw new AcRx.Exception(es, msg).Log(es, condition, msg); 
       }
 
       /// <summary>
@@ -93,14 +95,14 @@ namespace Autodesk.AutoCAD.Runtime
          where T:RXObject
       {
          if(!RXClass<T>.IsAssignableFrom(id, exact))
-            throw new AcRx.Exception(id.IsNull ? AcRx.ErrorStatus.NullObjectId : es, msg);
+            throw new AcRx.Exception(id.IsNull ? AcRx.ErrorStatus.NullObjectId : es, msg).Log(es, id, exact, msg);
       }
 
       public static void ThrowIfNot<T>(this AcRx.ErrorStatus es, ObjectId id, bool exact = false, string msg = "") 
          where T:RXObject
       {
          if(!RXClass<T>.IsAssignableFrom(id, exact))
-            throw new AcRx.Exception(id.IsNull ? AcRx.ErrorStatus.NullObjectId : es, msg);
+            throw new AcRx.Exception(id.IsNull ? AcRx.ErrorStatus.NullObjectId : es, msg).Log(es, id, exact, msg);
       }
 
       /// <summary>
@@ -110,7 +112,7 @@ namespace Autodesk.AutoCAD.Runtime
       public static void Check(this AcRx.ErrorStatus es, bool condition, string msg = "")
       {
          if(!condition)
-            throw new AcRx.Exception(es, msg);
+            throw new AcRx.Exception(es, msg).Log(es, condition, msg);
       }
 
       /// <summary>

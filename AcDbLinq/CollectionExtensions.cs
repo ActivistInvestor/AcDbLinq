@@ -174,17 +174,27 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          }
          else  // fallback to least-preferred path with greatest overhead (unboxing)
          {
-            foreach(ObjectId id in source)
+            if(source is BlockTableRecord btr && typeof(T) == typeof(Entity))
             {
-               if(predicate(id))
+               foreach(ObjectId id in btr)
                {
                   yield return (T)trans.GetObject(id, mode, openErased, openLocked);
+               }
+            }
+            else
+            {
+               foreach(ObjectId id in source)
+               {
+                  if(predicate(id))
+                  {
+                     yield return (T)trans.GetObject(id, mode, openErased, openLocked);
+                  }
                }
             }
          }
       }
 
-      /// Public GetObjects() extension method overloads:
+      /// Public GetObjects<T>() overloads:
 
       /// <summary>
       /// BlockTableRecord:
@@ -223,9 +233,11 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// ObjectIdCollection:
       /// 
       /// A version of GetObjects() targeting ObjectIdCollection,
-      /// that enumerates DBObjects represented by the ObjectIds
-      /// in the source collection that represent instances of the 
-      /// generic argument.
+      /// that enumerates a subset of DBObjects represented by the 
+      /// ObjectIds in the source collection. 
+      /// 
+      /// Only the elements representing instances of the generic 
+      /// argument are enumerated.
       /// </summary>
       /// <param name="source">The ObjectIdCollection containing the
       /// ObjectIds of the objects to be opened and returned</param>

@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using Autodesk.AutoCAD.ApplicationServices;
+using Autodesk.AutoCAD.ApplicationServices.Extensions;
 using Autodesk.AutoCAD.DatabaseServices.Filters;
 using Autodesk.AutoCAD.Runtime;
 
@@ -85,6 +86,21 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    }
 
    /// <summary>
+   /// And a specialization for filtering entities based on properties
+   /// of the layer they reside on:
+   /// </summary>
+
+   public class LayerFilter<T> : DBObjectFilter<T, LayerTableRecord> where T : Entity
+   {
+      public LayerFilter(Expression<Func<LayerTableRecord, bool>> predicate)
+         : base(e => e.LayerId, predicate) 
+      {
+      }
+   }
+
+
+
+   /// <summary>
    /// What's not obvious from the above examples, is how efficient
    /// the DBObjectFilter is at doing its job. For example, when using 
    /// the filter that excludes entities on locked layers, it has to 
@@ -124,7 +140,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
          Document doc = Application.DocumentManager.MdiActiveDocument;
          Database db = doc.Database;
-         using(Transaction tr = new OpenCloseTransaction())
+         using(DocTransaction tr = new DocTransaction())
          {
             // Rather than having to write dozens of lines of
             // code, using the BlockFilter and a helper method
@@ -132,7 +148,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             // collect all block references in model space whose
             // block name starts with "DESK":
 
-            var desks = db.GetModelSpaceObjects<BlockReference>(tr).Where(deskFilter);
+            var desks = tr.GetModelSpaceObjects<BlockReference>().Where(deskFilter);
 
             // Get the ObjectIds of the resulting block references:
 
@@ -156,10 +172,10 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       {
          Document doc = Application.DocumentManager.MdiActiveDocument;
          Database db = doc.Database;
-         using(Transaction tr = doc.TransactionManager.StartTransaction())
+         using(var tr = new DocTransaction())
          {
             var deskFilter = new BlockFilter(btr => btr.Name.Matches("DESK*"));
-            var desks = db.GetModelSpaceObjects<BlockReference>(tr).Where(deskFilter);
+            var desks = tr.GetModelSpaceObjects<BlockReference>().Where(deskFilter);
 
             int cnt = 0;
             foreach(BlockReference blockref in desks.UpgradeOpen())
@@ -185,7 +201,16 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       {
          Document doc = Application.DocumentManager.MdiActiveDocument;
          Database db = doc.Database;
-         using(Transaction tr = doc.TransactionManager.StartTransaction())
+
+         /// A DocTransaction combines the functionality of
+         /// a transaction and the broad range of operations
+         /// provided by the extension methods of the Database 
+         /// class that are included in this library. 
+         /// 
+         /// All extension methods that target the Database
+         /// class are also instance members of DocTransaction.
+
+         using(var tr = new DocTransaction())
          {
 
             // Define a filter that collects all insertions of blocks
@@ -199,19 +224,27 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             var layerFilter = new DBObjectFilter<BlockReference, LayerTableRecord>(
                btr => btr.LayerId, layer => !layer.IsLocked);
 
-            // Logically-join the two filters using the And() method:
-            
-            var desks = db.GetModelSpaceObjects<BlockReference>(tr)
+            // Use the And() method to add the layerFilter's
+            // critieria to the block filter:
+
+            var desks = tr.GetModelSpaceObjects<BlockReference>()
                .Where(blockFilter.And(layerFilter));
 
+            // Note that the above use of the And() method to combine
+            // the criteria of both filters is equivalent to this:
+
+            desks = tr.GetModelSpaceObjects<BlockReference>()
+               .Where(br => blockFilter.IsMatch(br) && layerFilter.IsMatch(br));
+
             // Get the ObjectIds of the resulting block references:
-            
+
             var ids = desks.Select(br => br.ObjectId).ToArray();
             doc.Editor.WriteMessage($"\nFound {ids.Length} DESK blocks.");
 
             // Select the resulting block references:
             if(ids.Length > 0)
                doc.Editor.SetImpliedSelection(ids);
+
             tr.Commit();
          }
       }
@@ -225,6 +258,10 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// to the query criteria used to qualify objects to be
       /// erased (that they must reside on the layer "FURNITURE"
       /// in addition to the layer not being locked).
+      /// 
+      /// The example also uses a specialization of DBObjectFilter
+      /// to filter entities based on properties of the layer they 
+      /// reside on.
       /// </summary>
 
       [CommandMethod("ERASEDESKS2")]
@@ -232,7 +269,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       {
          Document doc = Application.DocumentManager.MdiActiveDocument;
          Database db = doc.Database;
-         using(Transaction tr = doc.TransactionManager.StartTransaction())
+         using(var tr = new DocTransaction())
          {
             /// Define a filter that includes only block 
             /// references having names starting with 'DESK'.
@@ -242,32 +279,57 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             var blockFilter = new BlockFilter(btr => btr.Name.Matches("DESK*"));
             
             /// Define a filter that excludes block references 
-            /// on locked layers:
+            /// on locked layers, this time using the LayerFilter
+            /// specialization:
             
-            var layerFilter = new DBObjectFilter<BlockReference, LayerTableRecord>(
-               btr => btr.LayerId, layer => !layer.IsLocked);
+            var layerFilter = new LayerFilter<BlockReference>(layer => !layer.IsLocked);
 
             /// Add an additional condition to the LayerFilter
             /// predicate that's applied to each LayerTableRecord, 
-            /// requiring the layer's name be equal to "FURNITURE":
+            /// requiring that the layer's name starts with "FURNITURE".
+            /// 
+            /// The net sum effect is that only BlockReferences residing 
+            /// on an unlocked layer whose name starts with "FURNITURE"
+            /// will be included.
 
-            layerFilter.Expression.And(layer => layer.Name.IsEqualTo("FURNITURE"));
+            layerFilter.Source.And(layer => layer.Name.Matches("FURNITURE*"));
 
-            // Logically-join the blockFilter and
+            /// Add an additional condition to the blockFilter
+            /// that excludes block references that are non-
+            /// uniformly scaled. 
+            /// 
+            /// This criteria is applied to each BlockReference, while 
+            /// the predicate supplied to the constructor is applied to 
+            /// each BlockTableRecord. The DBObjectFilter class allows
+            /// one to specify per-instance and per-reference criteria.
+
+            blockFilter.And(br => br.BlockTransform.IsUniscaledOrtho());
+
+            // Logically-join the blockFilter and the
             // layerFilter using the And() method:
+            //
+            // This causes the blockFilter to incorporate
+            // its criteria with the layerFilter's criteria:
 
-            var filter = blockFilter.And(layerFilter);
+            blockFilter.And(layerFilter);
 
-            // At this point, the blockFilter and layerFilter are
-            // both obsolete, and the result of And() (assigned to
-            // the 'filter' variable above) represents the logical
-            // union of the two filters. Hence, each BlockReference
-            // must now satisfy the conditions of both filters in
-            // order to be included in the result.
+            // At this point, the layerFilter is obsolete, and the
+            // blockFilter represents the logical union of itself
+            // and the layerFilter, so the blockFilter must be used
+            // to perform the query. With the two filters unioned
+            // into a single filter, each BlockReference must satisfy
+            // the criteria of both filters in order to be included
+            // in the result.
+            //
+            // This example attempts to demonstrate the 'composablity'
+            // provided by the DBObjectFilter class, allowing runtime
+            // conditions to be used to determine what critiera is used
+            // to filter objects.
             
-            var desks = db.GetModelSpaceObjects<BlockReference>(tr).Where(filter);
+            var desks = tr.GetModelSpaceObjects<BlockReference>().Where(blockFilter);
 
-            /// Erase all DOOR blocks that are not on a locked layer,
+            /// Erase all uniformly-scaled DESK blocks that are on 
+            /// a locked layer whose name starts with "FURNITURE",
             /// this time using the Erase() extension method from 
             /// EntityExtensions.cs:
             
@@ -279,24 +341,25 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          }
       }
 
-      [CommandMethod("GETOBJ")]
-      public static void GetNamedObjects()
+      /// <summary>
+      /// Example showing the use of the GetNamedObject<>() method:
+      /// </summary>
+      [CommandMethod("GETNAMEDOBJ")]
+      public static void TestGetNamedObjects()
       {
-         using(var tr = new OpenCloseTransaction())
+         using(var tr = new DocTransaction())
          {
             Document doc = Application.DocumentManager.MdiActiveDocument;
-            Database db = doc.Database;
 
-            var group1 = db.GetNamedObject<Group>("Group1", tr);
+            var group1 = tr.GetNamedObject<Group>("Group1");
             doc.Editor.WriteMessage($"\n{group1.ToString()}");
-            var layer = db.GetNamedObject<LayerTableRecord>("PHONES", tr);
+            var layer = tr.GetNamedObject<LayerTableRecord>("PHONES");
             doc.Editor.WriteMessage($"\n{layer.ToString()}");
 
             tr.Commit();
 
          }
       }
-
    }
 
 }

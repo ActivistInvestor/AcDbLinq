@@ -10,11 +10,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Runtime.Diagnostics;
 using Autodesk.AutoCAD.DatabaseServices.Extensions;
 using AcRx = Autodesk.AutoCAD.Runtime;
-using System.Runtime.InteropServices;
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {
@@ -25,8 +25,19 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// 
    /// These methods are intended to simplify application 
    /// development by allowing the developer to focus on 
-   /// the details of the application, rather than the 
-   /// details of the implementation of common operations.
+   /// the implementation details of the application, rather 
+   /// than the implementation details of common operations.
+   /// 
+   /// In addition to these extensions to the Database, the
+   /// DBTransaction and DocTransaction classes expose most
+   /// of these same methods as instance methods that allow
+   /// them to be used without having to pass a Transaction
+   /// argument.
+   /// 
+   /// See the DBObjectFilterExample.cs file for examples
+   /// that use the instance methods of the DocTransaction 
+   /// in lieu of these extension methods of the Database
+   /// class.
    /// </summary>
 
    public static partial class DatabaseExtensions
@@ -234,6 +245,18 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          bool throwIfNotFound = false)
       {
          return GetRecord<ViewportTableRecord>(db, predicate, trans, mode);
+      }
+
+      /// <summary>
+      /// Gets a ViewportTableRecord by viewport number:
+      /// </summary>
+
+      public static ViewportTableRecord GetViewportTableRecord(this Database db, int vpnum,
+         Transaction trans,
+         OpenMode mode = OpenMode.ForRead,
+         bool throwIfNotFound = false)
+      {
+         return db.GetRecord<ViewportTableRecord>(vptr => vptr.Number == vpnum, trans, mode);
       }
 
       public static ViewTableRecord GetView(this Database db,

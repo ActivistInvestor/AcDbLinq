@@ -13,6 +13,8 @@ using System;
 using Autodesk.AutoCAD.Runtime;
 using AcRx = Autodesk.AutoCAD.Runtime;
 
+#pragma warning disable CS0618 // Type or member is obsolete
+
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {
    public static partial class ObjectIdExtensions
