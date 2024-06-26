@@ -130,7 +130,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          this.expression = valueSelector;
       }
 
-      public Func<TKeySource, bool> Predicate => GetValueMethod;
+      public Func<TKeySource, bool> Predicate => Accessor;
 
       public ExpressionProperty Source 
       { 
@@ -147,21 +147,15 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// in a logical 'and' or 'or' operation. Can also combine the filter
       /// with an arbitrary Expression<Func<TKeySource, bool>>.
       /// 
-      /// This method does not modify the instance. It returns an
-      /// expression that can be compiled to produce a delegate that
-      /// can be invoked in place of the filter's IsMatch() method. 
-      /// 
-      /// The returned expression superseeds the instance, which 
-      /// doesn't incorporate any additional conditions specified
-      /// by the argument.
-      /// 
-      /// Further modification of the returned expression can be
-      /// done using extension methods of the ExpressionBuilder
-      /// and PredicateExpression class, but the 
+      /// This method modifies the instance to perform a
+      /// logical and/or operation on the conditions defined
+      /// by the instance and the conditions defined by the
+      /// argument. 
       /// 
       /// </summary>
-      /// <param name="operand"></param>
-      /// <returns></returns>
+      /// <param name="operand">The expression that is to be
+      /// logically unioned with the current instance.</param>
+      /// <returns>The current instance</returns>
 
       public DBObjectFilter<TKeySource, TValueSource> And(
          Expression<Func<TKeySource, bool>> operand)
@@ -180,77 +174,55 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       /// <summary>
-      /// If reverse is true, the operand is evaluated before
-      /// the instance expression. Otherwise, the instance 
-      /// expression is evaluated before the operand.
+      /// Like And() and Or(), but also allows a way to control
+      /// the order of the operations.
+      /// 
+      /// If reverse is true, the operand expression is evaluated 
+      /// before the instance expression. Otherwise, the instance 
+      /// expression is evaluated before the operand expression.
       /// </summary>
       /// <param name="reverse">A value indicating if the operand
       /// expression is evaluated before the instance expression.</param>
       /// <param name="operand">The operand expression</param>
       
-      public virtual void And(bool reverse, Expression<Func<TKeySource, bool>> operand)
+      public DBObjectFilter<TKeySource, TValueSource> And(bool reverse, 
+         Expression<Func<TKeySource, bool>> operand)
       {
          Assert.IsNotNull(operand, nameof(operand));
          if(reverse)
             GetValueExpression = operand.And(GetValueExpression);
          else
             GetValueExpression = GetValueExpression.Or(operand);
+         return this;
       }
 
-      public virtual void Or(bool reverse, Expression<Func<TKeySource, bool>> operand)
+      public DBObjectFilter<TKeySource, TValueSource> Or(bool reverse, 
+         Expression<Func<TKeySource, bool>> operand)
       {
          Assert.IsNotNull(operand, nameof(operand));
          if(reverse)
             GetValueExpression = operand.Or(GetValueExpression);
          else
             GetValueExpression = GetValueExpression.Or(operand);
+         return this;
       }
-
-      public void SourceAnd(Expression<Func<TValueSource, bool>> operand)
-      {
-         Assert.IsNotNull(operand, nameof(operand));
-         expression = expression.And(operand);
-         base.valueSelector = expression.Compile();
-      }
-
-      public void SourceOr(Expression<Func<TValueSource, bool>> operand)
-      {
-         Assert.IsNotNull(operand, nameof(operand));
-         expression = expression.Or(operand);
-         base.valueSelector = expression.Compile();
-      }
-
-      /// <summary>
-      /// Implements IFilter<T>.IsMatch
-      /// </summary>
 
       public bool IsMatch(TKeySource candidate)
       {
-         return GetValueMethod(candidate);
+         return this[candidate];
       }
 
-      public static implicit operator Func<TKeySource, bool>(DBObjectFilter<TKeySource, TValueSource> filter)
+      public static implicit operator 
+      Func<TKeySource, bool>(DBObjectFilter<TKeySource, TValueSource> filter)
       {
          Assert.IsNotNull(filter, nameof(filter));
          return filter.Accessor;
       }
 
-      /// <summary>
-      /// Potential bug here: Because the returned delegate is 
-      /// invoked by a virtual method that can be overridden to 
-      /// take a different path - this delegate cannot be used
-      /// from the outside. disabled.
-      /// </summary>
-      /// <param name="filter"></param>
-      //public static implicit operator Func<TValueSource, bool>(DBObjectFilter<TKeySource, TValueSource> filter)
-      //{
-      //   Assert.IsNotNull(filter, nameof(filter));
-      //   return filter.valueSelector;
-      //}
-
       public static implicit operator 
       Expression<Func<TKeySource, bool>>(DBObjectFilter<TKeySource, TValueSource> filter)
       {
+         Assert.IsNotNull(filter, nameof(filter));
          return filter.GetValueExpression;
       }
 

@@ -151,10 +151,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    {
       Dictionary<ObjectId, TValue> map = null;
 
-      Func<TKeySource, TValue> getValue = null;
-      protected Func<TKeySource, TValue> GetValueMethod => getValue;
-
       Expression<Func<TKeySource, TValue>> getValueExpression = null;
+      Func<TKeySource, TValue> getValue = null;
 
       protected Dictionary<ObjectId, TValue> Map => map;
       protected Func<TKeySource, ObjectId> keySelector;
@@ -170,7 +168,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          this.map = CreateMap();
          this.keySelector = keySelector;
          this.valueSelector = valueSelector;
-         this.GetValueExpression = arg => GetValue(arg);
+         this.getValueExpression = arg => GetValue(arg);
+         this.getValue = GetValue;
       }
 
       protected virtual Dictionary<ObjectId, TValue> CreateMap()
@@ -187,9 +186,15 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             if(getValueExpression != value)
             {
                getValueExpression = value;
-               getValue = getValueExpression.Compile();
+               getValue = CompileAndInvoke;
             }
          }
+      }
+
+      TValue CompileAndInvoke(TKeySource arg)
+      {
+         getValue = getValueExpression.Compile();
+         return getValue(arg);
       }
 
       /// <summary>
