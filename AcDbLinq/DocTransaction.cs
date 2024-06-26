@@ -53,7 +53,11 @@ namespace Autodesk.AutoCAD.ApplicationServices.Extensions
 
       protected override void Dispose(bool disposing)
       {
-         docLock?.Dispose();
+         if(disposing && docLock != null)
+         {
+            docLock.Dispose();
+            docLock = null;
+         }
          base.Dispose(disposing);
       }
 
