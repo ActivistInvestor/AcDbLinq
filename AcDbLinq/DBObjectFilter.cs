@@ -83,9 +83,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// 
    /// Hence, regardless of how many entities reference a given
    /// layer, the layer must be accessed only once in the life
-   /// of a DBObjectQuery instance.
+   /// of a DBObjectFilter instance.
    /// 
-   /// DBObjectQuery is just a specialization of DBObjectDataMap,
+   /// DBObjectFilter is just a specialization of DBObjectDataMap,
    /// where the value that is cached for each referenced object
    /// is a bool representing if each referenced object's data
    /// satisfies the query criteria (true), or not (false).
