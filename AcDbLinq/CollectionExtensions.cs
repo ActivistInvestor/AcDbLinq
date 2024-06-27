@@ -559,7 +559,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          OpenMode mode = OpenMode.ForRead) where T : DBObject
       {
          Assert.IsNotNullOrDisposed(source, nameof(source));
-         return source.OfType<DBDictionaryEntry>()
+         return source.Cast<DictionaryEntry>()
             .Select(e => e.Value)
             .GetObjectsCore<T>(trans, mode, false, true);
       }

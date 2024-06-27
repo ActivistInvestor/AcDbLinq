@@ -100,7 +100,7 @@ namespace AutoCAD.AcDbLinq.Examples
    public class LayerFilter<T> : DBObjectFilter<T, LayerTableRecord> where T : Entity
    {
       public LayerFilter(Expression<Func<LayerTableRecord, bool>> predicate)
-         : base(e => e.LayerId, predicate) 
+         : base(e => e.LayerId, predicate)
       {
       }
    }
@@ -143,7 +143,7 @@ namespace AutoCAD.AcDbLinq.Examples
 
          var deskFilter = new BlockFilter(btr => btr.Name.Matches("DESK*"));
 
-         // We'll use a DocTransaction to simplify the operation.
+         // We'll use a DocumentTransaction to simplify the operation.
          // The default constructor uses the active document:
 
          using(var tr = new DocumentTransaction())
@@ -206,13 +206,13 @@ namespace AutoCAD.AcDbLinq.Examples
       [CommandMethod("SELECTDESKS2")]
       public static void SelectDesks2()
       {
-         /// A DocTransaction combines the functionality of
+         /// A DocumentTransaction combines the functionality of
          /// a transaction and the broad range of operations
          /// provided by the extension methods of the Database 
          /// class that are included in this library. 
          /// 
          /// All extension methods that target the Database
-         /// class are also instance members of DocTransaction.
+         /// class are also instance members of DocumentTransaction.
 
          using(var doc = new DocumentTransaction())
          {
@@ -250,6 +250,114 @@ namespace AutoCAD.AcDbLinq.Examples
                doc.Editor.SetImpliedSelection(ids);
 
             doc.Commit();
+         }
+      }
+
+      /// <summary>
+      /// This example attempts to demonstrate the 'composability'
+      /// aspect of the DBObjectFilter class. Composability is what
+      /// allows runtime conditions to determine what critiera is 
+      /// used to filter/query objects.
+      /// 
+      /// This method erases all insertions of blocks in model space 
+      /// having names starting with "DESK", that reside on unlocked 
+      /// layers whose names start with "FURNITURE".
+      /// 
+      /// This example shows how to add an additional condition 
+      /// to the query criteria used to qualify objects to be
+      /// erased (that they must reside on the layer "FURNITURE"
+      /// in addition to the layer not being locked in this case).
+      /// 
+      /// The example also uses the LayerFilter specialization of 
+      /// DBObjectFilter to filter entities based on properties of 
+      /// the layer they reside on.
+      /// 
+      /// Also note that because this command is registered to run
+      /// in the application context, implicit document locking is
+      /// done by the DocumentTransaction class.
+      /// </summary>
+
+      [CommandMethod("ERASEDESKS2", CommandFlags.Session)]
+      public static void EraseDesks2()
+      {
+         // Define a filter that includes only block 
+         // references having names starting with 'DESK',
+         // using the BlockFilter specialization defined 
+         // above:
+
+         var blockFilter = new BlockFilter(btr => btr.Name.Matches("DESK*"));
+
+         // Define a second filter that excludes block
+         // references residing on locked layers, this
+         // time using the LayerFilter specialization
+         // defined above:
+
+         var layerFilter = new LayerFilter<BlockReference>(layer => !layer.IsLocked);
+
+         // Add an additional condition to the LayerFilter
+         // predicate that's applied to each LayerTableRecord, 
+         // requiring the layer's name start with "FURNITURE".
+         // 
+         // The resulting filter includes only BlockReferences 
+         // residing on an unlocked layer whose name starts with 
+         // "FURNITURE".
+         //
+         // The Criteria property represents the predicate that's
+         // applied to each LayerTableRecord, which is initially
+         // the predicate passed to the constructor, combined with
+         // any additional conditions added using the Add() or Or()
+         // methods, as is done here:
+
+         layerFilter.Criteria.And(layer => layer.Name.Matches("FURNITURE*"));
+
+         // After the above statement execute, the predicate that's
+         // applied to each LayerTableRecord becomes:
+         // 
+         //   layer => !layer.IsLocked && layer.Name.Matches("FURNITURE*");
+
+         // We can also manipulate the predicate that's applied to
+         // each Block reference as well. Here we add an additional 
+         // condition that excludes block references that are non-
+         // uniformly scaled. 
+         // 
+         // This criteria is applied to each BlockReference, rather
+         // than to each BlockTableRecord. The DBObjectFilter class 
+         // allows one to specify both per-instance and per-reference 
+         // criteria:
+
+         blockFilter.And(br => br.BlockTransform.IsUniscaledOrtho());
+
+         // The And() method also allows one to logically-combine two
+         // DBObjectFilters into a single DBObjectFilter that applys
+         // the logically-combined conditions of both filters.
+         //
+         // This call to And() causes the block filter to add the
+         // criteria defined by the layer filter::
+
+         blockFilter.And(layerFilter);
+
+         // At this point, the layerFilter is obsolete, and the
+         // blockFilter represents the logical union of itself
+         // and the layerFilter, so the blockFilter must be used
+         // to perform the query. With the two filters unioned
+         // into a single filter, each BlockReference must satisfy
+         // the criteria of both filters in order to be included
+         // in the result.
+
+         using(var tr = new DocumentTransaction())
+         {
+            var desks = tr.GetModelSpaceObjects<BlockReference>().Where(blockFilter);
+
+            /// Erase all uniformly-scaled DESK blocks that are on 
+            /// a locked layer whose name starts with "FURNITURE",
+            /// this time using the Erase() extension method from 
+            /// EntityExtensions.cs:
+
+            int count = desks.UpgradeOpen().Erase();
+
+            tr.Commit();
+
+            tr.Editor.WriteMessage($"\nFound and erased {count} DESK blocks");
          }
       }
 
@@ -302,9 +410,8 @@ namespace AutoCAD.AcDbLinq.Examples
       {
          using(var tr = new DocumentTransaction())
          {
-            var idModel = tr.ModelSpaceBlockId;
-
-            /// Define a BlockFilter that includes only user-defined
+            // Define a BlockFilter that includes 
+            // only user-defined blocks:
 
             var filter = new BlockFilter(btr => btr.IsUserBlock());
 
@@ -331,139 +438,74 @@ namespace AutoCAD.AcDbLinq.Examples
       }
 
       /// <summary>
-      /// This example attempts to demonstrate the 'composability'
-      /// aspect of the DBObjectFilter class. Composability is what
-      /// allows runtime conditions to determine what critiera is 
-      /// used to filter/query objects.
-      /// 
-      /// This method erases all insertions of blocks in model space 
-      /// having names starting with "DESK", that reside on unlocked 
-      /// layers whose names start with "FURNITURE".
-      /// 
-      /// This example shows how to add an additional condition 
-      /// to the query criteria used to qualify objects to be
-      /// erased (that they must reside on the layer "FURNITURE"
-      /// in addition to the layer not being locked in this case).
-      /// 
-      /// The example also uses the LayerFilter specialization of 
-      /// DBObjectFilter to filter entities based on properties of 
-      /// the layer they reside on.
-      /// 
-      /// Also note that because this command is registered to run
-      /// in the application context, implicit document locking is
-      /// done by the DocumentTransaction class.
-      /// </summary>
-
-      [CommandMethod("ERASEDESKS2", CommandFlags.Session)]
-      public static void EraseDesks2()
-      {
-         // Define a filter that includes only block 
-         // references having names starting with 'DESK',
-         // using the BlockFilter specialization defined 
-         // above:
-            
-         var blockFilter = new BlockFilter(btr => btr.Name.Matches("DESK*"));
-            
-         // Define a second filter that excludes block
-         // references residing on locked layers, this
-         // time using the LayerFilter specialization
-         // defined above:
-            
-         var layerFilter = new LayerFilter<BlockReference>(layer => !layer.IsLocked);
-
-         // Add an additional condition to the LayerFilter
-         // predicate that's applied to each LayerTableRecord, 
-         // requiring the layer's name start with "FURNITURE".
-         // 
-         // The resulting filter includes only BlockReferences 
-         // residing on an unlocked layer whose name starts with 
-         // "FURNITURE".
-         //
-         // The Criteria property represents the predicate that's
-         // applied to each LayerTableRecord, which is initially
-         // the predicate passed to the constructor, combined with
-         // any additional conditions added using the Add() or Or()
-         // methods, as is done here:
-
-         layerFilter.Criteria.And(layer => layer.Name.Matches("FURNITURE*"));
-
-         // After the above statement execute, the predicate that's
-         // applied to each LayerTableRecord becomes:
-         // 
-         //   layer => !layer.IsLocked && layer.Name.Matches("FURNITURE*");
-            
-         // We can also manipulate the predicate that's applied to
-         // each Block reference as well. Here we add an additional 
-         // condition that excludes block references that are non-
-         // uniformly scaled. 
-         // 
-         // This criteria is applied to each BlockReference, rather
-         // than to each BlockTableRecord. The DBObjectFilter class 
-         // allows one to specify both per-instance and per-reference 
-         // criteria:
-
-         blockFilter.And( br => br.BlockTransform.IsUniscaledOrtho() );
-
-         // The And() method also allows one to logically-combine two
-         // DBObjectFilters into a single DBObjectFilter that applys
-         // the logically-combined conditions of both filters.
-         //
-         // This call to And() causes the block filter to add the
-         // criteria defined by the layer filter::
-
-         blockFilter.And( layerFilter );
-
-         // At this point, the layerFilter is obsolete, and the
-         // blockFilter represents the logical union of itself
-         // and the layerFilter, so the blockFilter must be used
-         // to perform the query. With the two filters unioned
-         // into a single filter, each BlockReference must satisfy
-         // the criteria of both filters in order to be included
-         // in the result.
-
-         using(var tr = new DocumentTransaction())
-         {
-            var desks = tr.GetModelSpaceObjects<BlockReference>().Where(blockFilter);
-
-            /// Erase all uniformly-scaled DESK blocks that are on 
-            /// a locked layer whose name starts with "FURNITURE",
-            /// this time using the Erase() extension method from 
-            /// EntityExtensions.cs:
-            
-            int count = desks.UpgradeOpen().Erase();
-
-            tr.Commit();
-
-            tr.Editor.WriteMessage($"\nFound and erased {count} DESK blocks");
-         }
-      }
-
-      /// <summary>
-      /// Example showing the use of the GetNamedObject<>() method:
+      /// An example showing the use of the GetNamedObject<>() method:
       /// 
       /// This example uses GetNamedObject() to open a Group named 
-      /// "Group1", and a LayerTableRecord having the name "PHONES"
+      /// "Group1"; a LayerTableRecord having the name "PHONES"; a
+      /// DBVisualStyle named "Conceptual"; and an MLineStyle named
+      /// "Standard". 
+      /// 
+      /// Note that GetNamedObject() returns items from SymbolTables
+      /// as well as built-in DBDictionaries.
       /// </summary>
 
       [CommandMethod("GETNAMEDOBJECTSEXAMPLE")]
-      public static void TestGetNamedObjects()
+      public static void GetNamedObjectsExample()
       {
          using(var tr = new DocumentTransaction())
          {
             var group1 = tr.GetNamedObject<Group>("Group1");
-
             tr.Editor.WriteMessage($"\nGroup: {group1.ToString()}");
 
             var layer = tr.GetNamedObject<LayerTableRecord>("PHONES");
-
             tr.Editor.WriteMessage($"\nLayer: {layer.ToString()}");
+
+            var visualStyle = tr.GetNamedObject<DBVisualStyle>("Conceptual");
+            tr.Editor.WriteMessage($"\nVisual style: {visualStyle}");
+
+            var mlStyle = tr.GetNamedObject<MlineStyle>("Standard");
+            tr.Editor.WriteMessage($"\nMLineStyle: {mlStyle}");
 
             tr.Commit();
 
+
          }
       }
-   }
 
+      [CommandMethod("GETNAMEDOBJECTCOLLECTIONSEXAMPLE")]
+      public static void GetNamedObjectCollectionExample()
+      {
+         using(var tr = new DocumentTransaction())
+         {
+            // Display the names of all layers in the active document:
+
+            tr.Editor.WriteMessage("\nLayers:\n");
+            foreach(LayerTableRecord ltr in tr.GetNamedObjects<LayerTableRecord>())
+            {
+               tr.Editor.WriteMessage($"\n{ltr.Name}");
+            }
+
+            // Display the names of all Visual styles defined in the active document:
+
+            tr.Editor.WriteMessage("\n\nVisual Styles:\n");
+            foreach(DBVisualStyle vs in tr.GetNamedObjects<DBVisualStyle>())
+            {
+               tr.Editor.WriteMessage($"\n{vs.Name}");
+            }
+
+            // Display the names of all Layouts defined in the active document:
+
+            tr.Editor.WriteMessage("\n\nLayouts:\n");
+            foreach(Layout layout in tr.GetNamedObjects<Layout>())
+            {
+               tr.Editor.WriteMessage($"\n{layout.LayoutName}");
+            }
+
+            tr.Commit();
+         }
+      }
+
+   }
 }
 
 
