@@ -1,4 +1,4 @@
-﻿/// DBObjectFilterExample.cs  
+﻿/// DisposableWrapperExtensions.cs  
 /// 
 /// ActivistInvestor / Tony T.
 /// 

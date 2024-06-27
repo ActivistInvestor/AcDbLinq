@@ -71,7 +71,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          bool openLocked = false) where T : Entity
       {
          db.CheckTransaction(trans);
-         return SymbolUtilityServices.GetBlockModelSpaceId(db)
+         return db.GetModelSpaceBlockId()
             .GetObject<BlockTableRecord>(trans)
             .GetObjects<T>(trans, mode, exact, openLocked);
       }
@@ -380,7 +380,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <param name="mode"></param>
       /// <returns></returns>
 
-      public static IEnumerable<T> GetObjects<T>(this Database db,
+      public static IEnumerable<T> GetNamedObjects<T>(this Database db,
          Transaction trans,
          OpenMode mode = OpenMode.ForRead) where T : DBObject
       {
@@ -934,6 +934,16 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          Assert.IsNotNullOrDisposed(btr.Database, nameof(Database));
          return btr.IsLayout && btr.ObjectId !=
             SymbolUtilityServices.GetBlockModelSpaceId(btr.Database);
+      }
+
+      /// <summary>
+      /// Filters a sequence of entities by owner block id
+      /// </summary>
+
+      public static IEnumerable<T> OwnedBy<T>(this IEnumerable<T> entities, ObjectId ownerId)
+         where T: Entity
+      {
+         return entities.Where(ent => ent.BlockId == ownerId);
       }
 
       /// <summary>
