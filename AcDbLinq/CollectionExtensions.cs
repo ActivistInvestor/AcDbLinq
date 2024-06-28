@@ -117,7 +117,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       {
          source.TryCheckTransaction(trans);
          openLocked &= mode == OpenMode.ForWrite;
-         var predicate = RXClass<T>.GetIdPredicate(exact);
+         bool flag = typeof(T) == typeof(DBObject);
+         Func<ObjectId, bool> predicate = flag ? id => true : RXClass<T>.GetIdPredicate(exact);
 
          /// The following code goes to great extents to
          /// take an optimized path, based on whether the 
@@ -132,7 +133,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             for(int i = 0; i < len; i++)
             {
                ObjectId id = ids[i];
-               if(predicate(id))
+               if(flag || predicate(id))
                {
                   yield return (T)trans.GetObject(id, mode, openErased, openLocked);
                }
@@ -144,7 +145,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             for(int i = 0; i < len; i++)
             {
                ObjectId id = array[i];
-               if(predicate(id))
+               if(flag || predicate(id))
                {
                   yield return (T)trans.GetObject(id, mode, openErased, openLocked);
                }
@@ -156,7 +157,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             for(int i = 0; i < len; i++)
             {
                ObjectId id = list[i];
-               if(predicate(id))
+               if(flag || predicate(id))
                {
                   yield return (T)trans.GetObject(id, mode, openErased, openLocked);
                }
@@ -166,7 +167,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          {
             foreach(ObjectId id in enumerable)
             {
-               if(predicate(id))
+               if(flag || predicate(id))
                {
                   yield return (T)trans.GetObject(id, mode, openErased, openLocked);
                }
@@ -174,6 +175,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          }
          else  // fallback to least-preferred path with greatest overhead (unboxing)
          {
+            /// Optimize for getting all entities from a BlockTableRecord:
             if(source is BlockTableRecord btr && typeof(T) == typeof(Entity))
             {
                foreach(ObjectId id in btr)
@@ -185,7 +187,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             {
                foreach(ObjectId id in source)
                {
-                  if(predicate(id))
+                  if(flag || predicate(id))
                   {
                      yield return (T)trans.GetObject(id, mode, openErased, openLocked);
                   }
@@ -236,8 +238,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// that enumerates a subset of DBObjects represented by the 
       /// ObjectIds in the source collection. 
       /// 
-      /// Only the elements representing instances of the generic 
-      /// argument are enumerated.
+      /// Only the subset of elements representing instances of the 
+      /// generic argument are enumerated.
       /// </summary>
       /// <param name="source">The ObjectIdCollection containing the
       /// ObjectIds of the objects to be opened and returned</param>
