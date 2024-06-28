@@ -8,6 +8,7 @@
 /// DBObjects in Linq queries and other sceanrios.
 
 using System;
+using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Linq.Expressions.Predicates;
 using System.Windows.Input;
@@ -144,6 +145,10 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          this.criteriaPredicate = valueSelector;
       }
 
+      /// <summary>
+      /// The predicate that's applied to each TCriteria
+      /// </summary>
+      
       Expression<Func<TCriteria, bool>> CriteriaPredicate
       {
          get
@@ -212,11 +217,82 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       /// <summary>
+      /// Slated to superseed the And() and Or() methods for
+      /// DBObjectFilters, but not for arbitrary predicates.
+      /// </summary>
+      /// <typeparam name="TNewCriteria"></typeparam>
+      /// <param name="logicalOperation"></param>
+      /// <param name="keySelector"></param>
+      /// <param name="predicate"></param>
+      /// <exception cref="ArgumentException"></exception>
+
+      public void Add<TNewCriteria>(
+         Func<TFiltered, ObjectId> keySelector,
+         Expression<Func<TNewCriteria, bool>> predicate) where TNewCriteria : DBObject
+      {
+         Add<TNewCriteria>(Logical.And, keySelector, predicate);
+      }
+
+      HashSet<Type> criteriaTypes = new HashSet<Type>(new Type[] { typeof(TCriteria) });
+
+      /// <summary>
+      /// Adds a child DBObjectFilter whose predicate 
+      /// is logically-combined with the predicate of
+      /// the instance the method is called on.
+      /// 
+      /// This method cannot be called multiple times
+      /// with the same generic argument type. Doing so
+      /// would be redunduant (e.g., the predicate can
+      /// be logically-combined with the predicate of
+      /// the existing child filter targeting the same
+      /// type).
+      /// </summary>
+      /// <typeparam name="TNewCriteria"></typeparam>
+      /// <param name="logicalOperation"></param>
+      /// <param name="keySelector"></param>
+      /// <param name="predicate"></param>
+      /// <exception cref="ArgumentException"></exception>
+      /// <exception cref="NotSupportedException"></exception>
+
+      public void Add<TNewCriteria>(Logical logicalOperation,
+         Func<TFiltered, ObjectId> keySelector, 
+         Expression<Func<TNewCriteria, bool>> predicate) where TNewCriteria: DBObject
+      {
+         Assert.IsNotNull(keySelector, nameof(keySelector));
+         Assert.IsNotNull(predicate, nameof(predicate));
+
+         if(!criteriaTypes.Add(typeof(TNewCriteria)))
+            throw new ArgumentException(
+               $"Instance already contains a child filter targeting {typeof(TNewCriteria).Name}");
+
+         var newFilter = new DBObjectFilter<TFiltered, TNewCriteria>(
+            keySelector, predicate);
+
+         switch(logicalOperation)
+         {
+            case Logical.And: 
+               And(newFilter); 
+               break;
+            case Logical.Or: 
+               Or(newFilter); 
+               break;
+            case Logical.AndFirst:
+               ReverseAnd(newFilter);
+               break;
+            case Logical.OrFirst: 
+               ReverseOr(newFilter); 
+               break;
+            default:
+               throw new NotSupportedException(nameof(logicalOperation));
+         }
+      }
+
+      /// <summary>
       /// These methods are like And() and Or(), but reverse the 
       /// order of evaluation.
       /// 
       /// With And() and Or(), the instance expression is evaluated
-      /// first, and if it evaluates to true, the expression argument
+      /// first and if it evaluates to true, the expression argument
       /// is then evaluated.
       /// 
       /// With RevAnd() and RevOr(), the expression argument is
@@ -225,7 +301,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// </summary>
       /// <param name="operand">The operand expression</param>
 
-      public DBObjectFilter<TFiltered, TCriteria> RevAnd(
+      public DBObjectFilter<TFiltered, TCriteria> ReverseAnd(
          Expression<Func<TFiltered, bool>> operand)
       {
          Assert.IsNotNull(operand, nameof(operand));
@@ -233,7 +309,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return this;
       }
 
-      public DBObjectFilter<TFiltered, TCriteria> RevOr(
+      public DBObjectFilter<TFiltered, TCriteria> ReverseOr(
          Expression<Func<TFiltered, bool>> operand)
       {
          Assert.IsNotNull(operand, nameof(operand));
@@ -297,7 +373,18 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          {
             return operand?.owner?.CriteriaPredicate;
          }
-      }
+
+      }// CriteriaProperty
+
+   }
+
+   public enum Logical
+   {
+      And, 
+      Or, 
+      AndFirst, 
+      OrFirst, 
+      Not
    }
 
 

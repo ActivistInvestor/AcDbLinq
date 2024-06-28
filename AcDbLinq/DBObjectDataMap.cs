@@ -165,6 +165,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       Dictionary<ObjectId, TValue> map = null;
 
       Expression<Func<TFiltered, TValue>> getValueExpression = null;
+      // visibility change to protected has not been tested
       Func<TFiltered, TValue> getValue = null;
 
       protected Dictionary<ObjectId, TValue> Map => map;
@@ -199,6 +200,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             if(getValueExpression != value)
             {
                getValueExpression = value;
+               // AcConsole.WriteLine($"set: {getValueExpression.ToString()}");
                getValue = CompileAndInvoke;
             }
          }
@@ -213,6 +215,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       {
          getValue = getValueExpression.Compile();
          Invalidate();
+         AcConsole.WriteLine(getValueExpression.ToString());
          return getValue(arg);
       }
 

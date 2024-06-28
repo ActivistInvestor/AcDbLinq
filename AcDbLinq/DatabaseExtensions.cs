@@ -1195,7 +1195,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          if(tr == null)
             throw new ArgumentNullException(nameof(tr));
          var objects = blkref.AttributeCollection.Cast<object>();
-         object first = blkref.AttributeCollection.First();
+         object first = blkref.AttributeCollection.TryGetFirst();
          if(first != null)
          {
             if(first is AttributeReference)
