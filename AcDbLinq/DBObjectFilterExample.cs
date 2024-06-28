@@ -397,7 +397,7 @@ namespace AutoCAD.AcDbLinq.Examples
                tr.Editor.WriteMessage("\n{0,-12} {1,4}", tuple.name, tuple.count);
                total += tuple.count;
             }
-            tr.Editor.WriteMessage("\n---------------------\n{0,-12} {1,4}", "Total", total);
+            tr.Editor.WriteMessage("\n-------------------------\n{0,-16} {1,4}", "Total", total);
 
             Application.DisplayTextScreen = true;
 
@@ -429,7 +429,7 @@ namespace AutoCAD.AcDbLinq.Examples
                tr.Editor.WriteMessage("\n{0,-12} {1,4}", tuple.name, tuple.count);
                total += tuple.count;
             }
-            tr.Editor.WriteMessage("\n---------------------\n{0,-12} {1,4}", "Total", total);
+            tr.Editor.WriteMessage("\n-------------------------\n{0,-16} {1,4}", "Total", total);
 
             Application.DisplayTextScreen = true;
 
