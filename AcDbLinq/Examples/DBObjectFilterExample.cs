@@ -152,7 +152,10 @@ namespace AutoCAD.AcDbLinq.Examples
             // code, using the BlockFilter and a helper method
             // from this library, in ONE LINE OF CODE, we can
             // collect all block references in model space whose
-            // block name starts with "DESK":
+            // block name starts with "DESK". That will include
+            // references to anonymous dynamic blocks as well,
+            // which is what complicates most other conventional
+            // means of achieving the objective:
 
             var desks = tr.GetModelSpaceObjects<BlockReference>().Where(deskFilter);
 
@@ -211,8 +214,8 @@ namespace AutoCAD.AcDbLinq.Examples
          /// provided by the extension methods of the Database 
          /// class that are included in this library. 
          /// 
-         /// All extension methods that target the Database
-         /// class are also instance members of DocumentTransaction.
+         /// All extension methods that target the Database class
+         /// are also instance members of DocumentTransaction.
 
          using(var doc = new DocumentTransaction())
          {
@@ -228,17 +231,18 @@ namespace AutoCAD.AcDbLinq.Examples
             var layerFilter = new DBObjectFilter<BlockReference, LayerTableRecord>(
                btr => btr.LayerId, layer => !layer.IsLocked);
 
-            // Use the And() method to add the layerFilter's
-            // critieria to the block filter:
+            // Define the filtered sequence, using the And() method
+            // to add the layerFilter critieria to the blockFilter:
 
             var desks = doc.GetModelSpaceObjects<BlockReference>()
                .Where(blockFilter.And(layerFilter));
 
             // Note that the above use of the And() method to combine
-            // the criteria of both filters is equivalent to this:
+            // the criteria of both filters is merely a simplified way
+            // of directly using both filters like so:
 
-            desks = doc.GetModelSpaceObjects<BlockReference>()
-               .Where(br => blockFilter.IsMatch(br) && layerFilter.IsMatch(br));
+            // desks = doc.GetModelSpaceObjects<BlockReference>()
+            //   .Where(br => blockFilter.IsMatch(br) && layerFilter.IsMatch(br));
 
             // Get the ObjectIds of the resulting block references:
 
@@ -254,27 +258,34 @@ namespace AutoCAD.AcDbLinq.Examples
       }
 
       /// <summary>
-      /// This example attempts to demonstrate the 'composability'
-      /// aspect of the DBObjectFilter class. Composability is what
-      /// allows runtime conditions to determine what critiera is 
-      /// used to filter/query objects.
+      /// The next example demonstrates the 'composability' 
+      /// aspect of the DBObjectFilter class.  
       /// 
-      /// This method erases all insertions of blocks in model space 
-      /// having names starting with "DESK", that reside on unlocked 
-      /// layers whose names start with "FURNITURE".
+      /// Composability is what allows runtime conditions to 
+      /// determine what critiera is used to filter/query 
+      /// objects.
+      /// 
+      /// The example erases all insertions of blocks in model 
+      /// space having names starting with "DESK", that reside on 
+      /// unlocked layers whose names start with "FURNITURE".
       /// 
       /// This example shows how to add an additional condition 
       /// to the query criteria used to qualify objects to be
-      /// erased (that they must reside on the layer "FURNITURE"
-      /// in addition to the layer not being locked in this case).
+      /// erased (in this case, that they must reside on a layer 
+      /// whose name starts with "FURNITURE", in addition to the 
+      /// layer being unlocked).
       /// 
       /// The example also uses the LayerFilter specialization of 
       /// DBObjectFilter to filter entities based on properties of 
-      /// the layer they reside on.
+      /// the layer they reside on, which provides a uncomplicated
+      /// alternative to creating instances of DBObjectFilter for
+      /// more-specific purposes.
+      /// 
+      /// DocumentTransaction:
       /// 
       /// Also note that because this command is registered to run
-      /// in the application context, implicit document locking is
-      /// done by the DocumentTransaction class.
+      /// in the application context, implicit document locking and
+      /// unlocking is fully-automated by the DocumentTransaction.
       /// </summary>
 
       [CommandMethod("ERASEDESKS2", CommandFlags.Session)]
@@ -310,7 +321,7 @@ namespace AutoCAD.AcDbLinq.Examples
 
          layerFilter.Criteria.And(layer => layer.Name.Matches("FURNITURE*"));
 
-         // After the above statement execute, the predicate that's
+         // After the above statement executes, the predicate that's
          // applied to each LayerTableRecord becomes:
          // 
          //   layer => !layer.IsLocked && layer.Name.Matches("FURNITURE*");
@@ -322,7 +333,7 @@ namespace AutoCAD.AcDbLinq.Examples
          // 
          // This criteria is applied to each BlockReference, rather
          // than to each BlockTableRecord. The DBObjectFilter class 
-         // allows one to specify both per-instance and per-reference 
+         // allows one to compose both per-instance and per-reference 
          // criteria:
 
          blockFilter.And(br => br.BlockTransform.IsUniscaledOrtho());
