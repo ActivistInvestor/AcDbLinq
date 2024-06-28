@@ -3,9 +3,6 @@
 /// ActivistInvestor / Tony T.
 /// 
 /// Distributed under the terms of the MIT license.
-/// 
-/// Classes that aid in the efficient filtering of 
-/// DBObjects in Linq queries and other sceanrios.
 
 using Autodesk.AutoCAD.Runtime.Diagnostics;
 using System;
@@ -23,19 +20,18 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// enumerated to obtain the result.
    /// </summary>
    /// <typeparam name="T"></typeparam>
-   /// <typeparam name="TValueSource"></typeparam>
+   /// <typeparam name="TCriteria"></typeparam>
 
-   public class FilteredEnumerable<T, TValueSource>
-         : DBObjectFilter<T, TValueSource>, IEnumerable<T> 
+   public class FilteredEnumerable<T, TCriteria>
+         : DBObjectFilter<T, TCriteria>, IEnumerable<T> 
       where T : DBObject
-      where TValueSource : DBObject
+      where TCriteria : DBObject
    {
       IEnumerable<T> source = new T[0];
 
       public FilteredEnumerable(IEnumerable<T> source,
-            Func<T, ObjectId> keySelector,
-            Expression<Func<TValueSource, bool>> predicate)
-         : base(keySelector, predicate)
+         Func<T, ObjectId> keySelector,
+         Expression<Func<TCriteria, bool>> predicate) : base(keySelector, predicate)
       {
          this.source = source ?? new T[0];
       }
@@ -45,11 +41,6 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          get { return source; }
          set { source = value ?? new T[0]; }
       }
-
-      PredicateExpression<T> predicateOverride = null;
-
-      // public override Func<T, bool> Accessor => predicateOverride ?? base.Accessor;
-
 
       public IEnumerator<T> GetEnumerator()
       {
@@ -76,15 +67,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return new FilteredEnumerable<T, TSource>(source, keySelector, predicate);
       }
 
-      /// <summary>
-      /// OpenMode.ForWrite not supported
-      /// </summary>
-
       public static FilteredEnumerable<T, TSource> AsFiltered<T, TSource>(
             this BlockTableRecord source,
             Transaction trans,
             Func<T, ObjectId> keySelector,
             Expression<Func<TSource, bool>> predicate,
+            OpenMode mode = OpenMode.ForRead,
             bool exact = false)
 
          where T : Entity
@@ -92,7 +80,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       {
          Assert.IsNotNullOrDisposed(source, nameof(source));
          return new FilteredEnumerable<T, TSource>(
-            source.GetObjects<T>(trans),
+            source.GetObjects<T>(trans, mode, exact),
             keySelector, predicate);
       }
 

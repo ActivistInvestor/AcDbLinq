@@ -103,7 +103,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// non-generic IEnumerable.
       /// </summary>
 
-      public static object First(this IEnumerable enumerable)
+      public static object TryGetFirst(this IEnumerable enumerable)
       {
          if(enumerable == null)
             throw new ArgumentNullException(nameof(enumerable));

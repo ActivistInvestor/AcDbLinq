@@ -58,23 +58,23 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// layer allowing code to access data of referenced objects 
    /// through objects that reference them.
    /// 
-   /// The <typeparamref name="TKeySource"/>> object is used to
+   /// The <typeparamref name="TFiltered"/>> object is used to
    /// obtain an ObjectId that is used as the key to store the
-   /// cached data. The <typeparamref name="TValueSource"/>> is
+   /// cached data. The <typeparamref name="TCriteria"/>> is
    /// used to produce the cached data. In a typical use case,
-   /// the <typeparamref name="TKeySource"/> is an Entity, and
-   /// the <typeparamref name="TValueSource"/>is an object that
+   /// the <typeparamref name="TFiltered"/> is an Entity, and
+   /// the <typeparamref name="TCriteria"/>is an object that
    /// is referenced by an entity (such as the LayerTableRecord
    /// of the layer which the entity resides on/references).
    /// 
-   /// <typeparamref name="TKeySource"/>usually has a many-to-one
-   /// relationship with the <typeparamref name="TValueSource"/>
+   /// <typeparamref name="TFiltered"/>usually has a many-to-one
+   /// relationship with the <typeparamref name="TCriteria"/>
    /// (e.g., many entities can reference the same layer). While
-   /// a <typeparamref name="TValueSource"/> always has a one-to-one
+   /// a <typeparamref name="TCriteria"/> always has a one-to-one
    /// relationship with the cached data.
    /// 
-   /// This simple example uses Entity as the <typeparamref name="TKeySource"/>
-   /// and LayerTableRecord as the <typeparamref name="TValueSource"/>,
+   /// This simple example uses Entity as the <typeparamref name="TFiltered"/>
+   /// and LayerTableRecord as the <typeparamref name="TCriteria"/>,
    /// and bool as the <typeparamref name="TValue"/>, and enables
    /// caching of a layer's IsLocked property value, avoiding the
    /// need to repeatedly open the LayerTableRecord to get it:
@@ -122,8 +122,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// modified. Once a DBObject whose data has been cached is modified, 
    /// the cached data is no-longer considered valid.
    /// 
-   /// Note: The following documentation applies to a specialization
-   /// of DBObjectDataMap that is not yet included in this distribution:
+   /// ****************************************************************
+   /// Note: The following documentation applies to a specialization of
+   /// DBObjectDataMap that is not yet included in this distribution.
    /// 
    /// However, in specialized/advanced use cases it is possible to allow
    /// an instance of this type to persist across changes to DBObjects whose
@@ -137,31 +138,43 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// the ObjectOverrule that monitors changes. If ObserveChanges is false
    /// (which it is by default) there's no need to dispose the instance.
    /// 
+   /// Generic characteristics:
+   /// 
+   /// 1. An ObjectId that references a TCriteria must be 
+   ///    reachable using an instance of a TFiltered.
+   ///    
+   /// 2. A TValue must be reachable using an instance of a 
+   ///    TCriteria.
+   /// 
+   /// 3. The ObjectId obtained from a TFiltered is a key that is
+   ///    permanently associated with the TValue obtained from the
+   ///    TCriteria referenced by the ObjectId key.
+   /// 
    /// </summary>
-   /// <typeparam name="TKeySource">The type of DBObject that is
+   /// <typeparam name="TFiltered">The type of DBObject that is
    /// used to produce the key used to retrieve cached data</typeparam>
-   /// <typeparam name="TValueSource">The type of DBObject from
+   /// <typeparam name="TCriteria">The type of DBObject from
    /// which the cached data is derived</typeparam>
    /// <typeparam name="TValue">The type of the cached data</typeparam>
 
 
-   public class DBObjectDataMap<TKeySource, TValueSource, TValue> 
-      where TKeySource : DBObject
-      where TValueSource : DBObject
+   public class DBObjectDataMap<TFiltered, TCriteria, TValue> 
+      where TFiltered : DBObject
+      where TCriteria : DBObject
    {
       Dictionary<ObjectId, TValue> map = null;
 
-      Expression<Func<TKeySource, TValue>> getValueExpression = null;
-      Func<TKeySource, TValue> getValue = null;
+      Expression<Func<TFiltered, TValue>> getValueExpression = null;
+      Func<TFiltered, TValue> getValue = null;
 
       protected Dictionary<ObjectId, TValue> Map => map;
-      protected Func<TKeySource, ObjectId> keySelector;
-      protected Func<TValueSource, TValue> valueSelector;
+      protected Func<TFiltered, ObjectId> keySelector;
+      protected Func<TCriteria, TValue> valueSelector;
       static readonly bool isPredicate = typeof(TValue) == typeof(bool);
 
       public DBObjectDataMap(
-         Func<TKeySource, ObjectId> keySelector,
-         Func<TValueSource, TValue> valueSelector) 
+         Func<TFiltered, ObjectId> keySelector,
+         Func<TCriteria, TValue> valueSelector) 
       {
          Assert.IsNotNull(keySelector, nameof(keySelector));
          Assert.IsNotNull(valueSelector, nameof(valueSelector));
@@ -177,7 +190,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return new Dictionary<ObjectId, TValue>();
       }
 
-      protected Expression<Func<TKeySource, TValue>> GetValueExpression
+      protected Expression<Func<TFiltered, TValue>> GetValueExpression
       {
          get { return getValueExpression; }
          set
@@ -196,7 +209,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// time the resulting delegate is called. 
       /// </summary>
 
-      TValue CompileAndInvoke(TKeySource arg)
+      TValue CompileAndInvoke(TFiltered arg)
       {
          getValue = getValueExpression.Compile();
          Invalidate();
@@ -204,35 +217,35 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       /// <summary>
-      /// Produces a value for the given <typeparamref name="TKeySource"/>> 
+      /// Produces a value for the given <typeparamref name="TFiltered"/>> 
       /// instance.
       /// </summary>
-      /// <param name="key">A <typeparamref name="TKeySource"/> whose
+      /// <param name="key">A <typeparamref name="TFiltered"/> whose
       /// associated value is to be retrieved.</param>
       /// <returns>The associated value</returns>
 
-      public TValue this[TKeySource key] => getValue(key);
+      public TValue this[TFiltered key] => getValue(key);
 
       /// <summary>
       /// The implicit conversion operator returns the value
       /// of this, which is the method called by the indexer.
       /// </summary>
 
-      public /*virtual*/ Func<TKeySource, TValue> Accessor => getValue;
+      public /*virtual*/ Func<TFiltered, TValue> Accessor => getValue;
 
       /// <summary>
       /// This method is not directly callable from the 
       /// outside, but can be used from the outside by 
       /// assigning the value of the Accessor property to
-      /// a delegate of the type Func<TKeySource, TValue>
+      /// a delegate of the type Func<TFiltered, TValue>
       /// and calling the delegate.
       /// </summary>
-      /// <param name="keySource">The <typeparamref name="TKeySource"/> instance
+      /// <param name="keySource">The <typeparamref name="TFiltered"/> instance
       /// for which a TValue is being requested.</param>
       /// <returns>The TValue for the given <paramref name="keySource"/></returns>
       /// <exception cref="AcRx.Exception"></exception>
 
-      TValue GetValue(TKeySource keySource)
+      TValue GetValue(TFiltered keySource)
       {
          ObjectId id = keySelector(keySource);
          if(id.IsNull)
@@ -256,7 +269,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <returns></returns>
       /// <exception cref="NotImplementedException"></exception>
 
-      protected virtual TValue GetDefaultValue(TKeySource keySource)
+      protected virtual TValue GetDefaultValue(TFiltered keySource)
       {
          throw new AcRx.Exception(AcRx.ErrorStatus.NullObjectId);
       }
@@ -273,16 +286,16 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// transactions and opens the DBObject directly.
       /// 
       /// </summary>
-      /// <param name="id">The ObjectId of a TValueSource object</param>
-      /// <param name="keySource">The TKeySource instance from which the 
+      /// <param name="id">The ObjectId of a TCriteria object</param>
+      /// <param name="keySource">The TFiltered instance from which the 
       /// <paramref name="id"/> argument was obtained.</param>
       /// <returns>The result of invoking the valueSelector delegate
-      /// on an instance of a TValueSource having the given ObjectId</returns>
+      /// on an instance of a TCriteria having the given ObjectId</returns>
 
-      protected virtual TValue GetValueForKey(ObjectId id, TKeySource keySource)
+      protected virtual TValue GetValueForKey(ObjectId id, TFiltered keySource)
       {
          AcRx.ErrorStatus.NullObjectId.ThrowIf(id.IsNull);
-         using(TValueSource source = (TValueSource)id.Open(OpenMode.ForRead))
+         using(TCriteria source = (TCriteria)id.Open(OpenMode.ForRead))
          {
             TValue value = GetValueFromSource(source);
             if(value != null)
@@ -292,7 +305,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       /// <summary>
-      /// Can be overridden to access the TValueSource object, and/or
+      /// Can be overridden to access the TCriteria object, and/or
       /// override the valueSelector delegate. The default implementation
       /// returns the result of invoking the valueSelector delegate on 
       /// the argument.
@@ -300,12 +313,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// Overrides of this can supermessage this base method to return
       /// the value, before and/or after they operate on the argument.
       /// </summary>
-      /// <param name="source">The <typeparamref name="TValueSource"/> used
+      /// <param name="source">The <typeparamref name="TCriteria"/> used
       /// to produce the result</param>
       /// <returns>The result of invoking the valueSelector delegate
-      /// on the <typeparamref name="TValueSource"/> instance</returns>
+      /// on the <typeparamref name="TCriteria"/> instance</returns>
 
-      protected virtual TValue GetValueFromSource(TValueSource source)
+      protected virtual TValue GetValueFromSource(TCriteria source)
          => valueSelector(source);
 
       /// <summary>
@@ -314,7 +327,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <param name="source"></param>
       /// <param name="value"></param>
 
-      protected virtual void Add(TValueSource source, TValue value)
+      protected virtual void Add(TCriteria source, TValue value)
       {
          if(value != null)
          {
@@ -348,11 +361,11 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       /// <summary>
       /// Indicates if the cache contains data associated with 
-      /// the TValueSource instance having the given ObjectId.
+      /// the TCriteria instance having the given ObjectId.
       /// </summary>
-      /// <param name="id">The ObjectId of a TValueSource instance</param>
+      /// <param name="id">The ObjectId of a TCriteria instance</param>
       /// <returns>A value indicating if the cache contains data
-      /// associated with the TValueSource instance having the 
+      /// associated with the TCriteria instance having the 
       /// given ObjectId</returns>
 
       public bool ContainsKey(ObjectId id) => map.ContainsKey(id);
@@ -371,7 +384,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// Invalidates a specified cache entry having the
       /// specified key.
       /// </summary>
-      /// <param name="id">The ObjectId key of a <typeparamref name="TValueSource"/>
+      /// <param name="id">The ObjectId key of a <typeparamref name="TCriteria"/>
       /// instance whose associated cache entry is to be invalidated</param>
 
       public void Invalidate(ObjectId id)
@@ -396,11 +409,11 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       /// <summary>
       /// Invalidates cached data associated with all 
-      /// TValueSource instances that are owned by the 
+      /// TCriteria instances that are owned by the 
       /// given Database.
       /// </summary>
       /// <param name="db">The database that owns the
-      /// TValueSource instances whose cache entries
+      /// TCriteria instances whose cache entries
       /// are to be invalidated.</param>
 
       public void Invalidate(Database db)
@@ -430,14 +443,14 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       /// <summary>
       /// Converts the instance to a delegate that takes an
-      /// instance of a TKeySource and returns its associated
+      /// instance of a TFiltered and returns its associated
       /// TValue. Calling the returned delegate and passing it
-      /// an instance of a <typeparamref name="TValueSource"/>
+      /// an instance of a <typeparamref name="TCriteria"/>
       /// is equivalent to using the indexer.
       /// </summary>
       /// <param name="map"></param>
 
-      public static implicit operator Func<TKeySource, TValue>(DBObjectDataMap<TKeySource, TValueSource, TValue> map)
+      public static implicit operator Func<TFiltered, TValue>(DBObjectDataMap<TFiltered, TCriteria, TValue> map)
       {
          Assert.IsNotNull(map, nameof(map));
          return map.Accessor;

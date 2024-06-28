@@ -12,37 +12,49 @@ using System.Linq.Expressions;
 using System.Linq.Expressions.Predicates;
 using System.Windows.Input;
 using Autodesk.AutoCAD.Runtime.Diagnostics;
-using Expr = System.Linq.Expressions.Expression;
 
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {
    /// <summary>
-   /// DBObjectFilter
+   /// DBObjectFilter<TFiltered, TCriteria>
    /// 
    /// A specialization of DBObjectDataMap that performs query filtering 
-   /// of TKeySource objects using criteria derived from TValueSource 
-   /// objects that are directly or indirectly referenced by TKeySource 
+   /// of TFiltered objects using criteria derived from TCriteria 
+   /// objects that are directly or indirectly referenced by TFiltered 
    /// objects.
    /// 
-   /// A simple example: A DBObjectFilter that excludes entities on
-   /// locked layers:
+   /// Generic arguments:
+   /// 
+   ///    TFiltered: The type of the object being filtered/queried
+   ///    
+   ///    TCriteria: The type of an object that is referenced by
+   ///    all TFiltered instances, and is used to determine if a
+   ///    each referencing TFiltered instance satisfies the filter 
+   ///    criteria.
+   ///    
+   ///    Both TFitlered and TCriteria must be DBObjects.
+   ///    
+   ///    The ObjectId of a TCriteria instance must be obtainable
+   ///    from a referencing TFiltered instance.
+   /// 
+   /// A simple example: A DBObjectFilter that filters Entities,
+   /// excluding those residing on locked layers:
    /// 
    /// <code>
    ///   
-   ///    var unlocked = 
-   ///      new DBObjectFilter<Entity, LayerTableRecord>(
-   ///         entity => entity.LayerId,
-   ///         layer => !layer.IsLocked
-   ///      );
+   ///    var unlockedLayerFilter = 
+   ///       new DBObjectFilter<Entity, LayerTableRecord>(
+   ///          entity => entity.LayerId,
+   ///          layer => !layer.IsLocked
+   ///       );
    /// 
    /// </code>
+   /// 
    /// In the above type, Entity is the type of object being
-   /// queried, and LayerTableRecord is the referenced object
-   /// whose data is used to determine if an entity satisfies
-   /// the the query critiera (in this example, the entity
-   /// satisfies the query criteria if it is not on a locked
-   /// layer).7
+   /// queried (TFiltered), and the LayerTableRecord is the 
+   /// referenced object whose data is used to determine if 
+   /// an entity satisfies the the query critiera (TCriteria).
    /// 
    /// The DBObjectFilter doesn't know anything about what type
    /// of objects are being queried, or what the criteria is.
@@ -57,7 +69,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// 
    /// The DBObjectFilter also doesn't know what data it must
    /// get from the referenced object, so it requires a second
-   /// delegate which does that, which is the second delegate 
+   /// delegate which does that, which is the second argument
    /// passed to the constructor above:
    /// 
    ///    layer => !layer.IsLocked
@@ -110,66 +122,68 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    ///    }
    ///    
    /// </code>
-   /// <typeparam name="TKeySource"></typeparam>
-   /// <typeparam name="TValueSource"></typeparam>
+   /// <typeparam name="TFiltered">The type that is to be filtered/queried</typeparam>
+   /// <typeparam name="TCriteria">The type that provides the filter criteria</typeparam>
 
-   public class DBObjectFilter<TKeySource, TValueSource>
-      : DBObjectDataMap<TKeySource, TValueSource, bool> 
+   public class DBObjectFilter<TFiltered, TCriteria>
+      : DBObjectDataMap<TFiltered, TCriteria, bool> 
 
-      where TKeySource : DBObject
-      where TValueSource : DBObject
+      where TFiltered : DBObject
+      where TCriteria : DBObject
 
    {
-      Expression<Func<TValueSource, bool>> valueSelectorExpr;
-      SourcePredicateProperty sourcePredicateProperty;
+      Expression<Func<TCriteria, bool>> criteriaPredicate;
+      CriteriaProperty sourcePredicateProperty;
 
-      public DBObjectFilter(Func<TKeySource, ObjectId> keySelector,
-                              Expression<Func<TValueSource, bool>> valueSelector)
+      public DBObjectFilter(
+         Func<TFiltered, ObjectId> keySelector,
+         Expression<Func<TCriteria, bool>> valueSelector)
+         
          : base(keySelector, valueSelector.Compile())
       {
-         this.valueSelectorExpr = valueSelector;
+         this.criteriaPredicate = valueSelector;
       }
 
-      Expression<Func<TValueSource, bool>> ValueSelectorExpr
+      Expression<Func<TCriteria, bool>> CriteriaPredicate
       {
          get
          {
-            return valueSelectorExpr;
+            return criteriaPredicate;
          }
          set
          {
             Assert.IsNotNull(value, nameof(value));
-            if(value != valueSelectorExpr)
+            if(value != criteriaPredicate)
             {
-               valueSelectorExpr = value;
-               valueSelector = CompileOnInvoke;
+               criteriaPredicate = value;
+               valueSelector = CompileAndInvoke;
             }
          }
       }
 
-      bool CompileOnInvoke(TValueSource arg)
+      bool CompileAndInvoke(TCriteria arg)
       {
-         valueSelector = valueSelectorExpr.Compile();
+         valueSelector = criteriaPredicate.Compile();
          Invalidate();
          return valueSelector(arg);
       }
 
-      public Func<TKeySource, bool> Predicate => Accessor;
+      public Func<TFiltered, bool> Predicate => Accessor;
 
-      public SourcePredicateProperty Criteria
+      public CriteriaProperty Criteria
       {
          get
          {
             if(sourcePredicateProperty == null)
-               sourcePredicateProperty = new SourcePredicateProperty(this);
+               sourcePredicateProperty = new CriteriaProperty(this);
             return sourcePredicateProperty;
          }
       }
 
       /// <summary>
-      /// Combines this filter with another DBObjectFilter<TKeySource,...>
+      /// Combines this filter with another DBObjectFilter<TFiltered,...>
       /// in a logical 'and' or 'or' operation. Can also combine the filter
-      /// with an arbitrary Expression<Func<TKeySource, bool>>.
+      /// with an arbitrary Expression<Func<TFiltered, bool>>.
       /// 
       /// This method modifies the instance to perform a
       /// logical and/or operation on the conditions defined
@@ -181,16 +195,16 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// logically unioned with the current instance.</param>
       /// <returns>The current instance</returns>
 
-      public DBObjectFilter<TKeySource, TValueSource> And(
-         Expression<Func<TKeySource, bool>> operand)
+      public DBObjectFilter<TFiltered, TCriteria> And(
+         Expression<Func<TFiltered, bool>> operand)
       {
          Assert.IsNotNull(operand, nameof(operand));
          GetValueExpression = GetValueExpression.And(operand);
          return this;
       }
 
-      public DBObjectFilter<TKeySource, TValueSource> Or(
-         Expression<Func<TKeySource, bool>> operand)
+      public DBObjectFilter<TFiltered, TCriteria> Or(
+         Expression<Func<TFiltered, bool>> operand)
       {
          Assert.IsNotNull(operand, nameof(operand));
          GetValueExpression = GetValueExpression.Or(operand);
@@ -211,77 +225,77 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// </summary>
       /// <param name="operand">The operand expression</param>
 
-      public DBObjectFilter<TKeySource, TValueSource> RevAnd(
-         Expression<Func<TKeySource, bool>> operand)
+      public DBObjectFilter<TFiltered, TCriteria> RevAnd(
+         Expression<Func<TFiltered, bool>> operand)
       {
          Assert.IsNotNull(operand, nameof(operand));
          GetValueExpression = operand.And(GetValueExpression);
          return this;
       }
 
-      public DBObjectFilter<TKeySource, TValueSource> RevOr(
-         Expression<Func<TKeySource, bool>> operand)
+      public DBObjectFilter<TFiltered, TCriteria> RevOr(
+         Expression<Func<TFiltered, bool>> operand)
       {
          Assert.IsNotNull(operand, nameof(operand));
          GetValueExpression = operand.Or(GetValueExpression);
          return this;
       }
 
-      public bool IsMatch(TKeySource candidate)
+      public bool IsMatch(TFiltered candidate)
       {
          return this[candidate];
       }
 
       public static implicit operator 
-      Func<TKeySource, bool>(DBObjectFilter<TKeySource, TValueSource> filter)
+      Func<TFiltered, bool>(DBObjectFilter<TFiltered, TCriteria> filter)
       {
          Assert.IsNotNull(filter, nameof(filter));
          return filter.Accessor;
       }
 
       public static implicit operator 
-      Expression<Func<TKeySource, bool>>(DBObjectFilter<TKeySource, TValueSource> filter)
+      Expression<Func<TFiltered, bool>>(DBObjectFilter<TFiltered, TCriteria> filter)
       {
          Assert.IsNotNull(filter, nameof(filter));
          return filter.GetValueExpression;
       }
 
-      public class SourcePredicateProperty
+      public class CriteriaProperty
       {
-         DBObjectFilter<TKeySource, TValueSource> owner;
+         DBObjectFilter<TFiltered, TCriteria> owner;
 
-         public SourcePredicateProperty(DBObjectFilter<TKeySource, TValueSource> owner)
+         public CriteriaProperty(DBObjectFilter<TFiltered, TCriteria> owner)
          {
             this.owner = owner;
          }
 
-         public void And(Expression<Func<TValueSource, bool>> operand)
+         public void And(Expression<Func<TCriteria, bool>> operand)
          {
             Assert.IsNotNull(operand, nameof(operand));
-            owner.ValueSelectorExpr = owner.ValueSelectorExpr.And(operand);
+            owner.CriteriaPredicate = owner.CriteriaPredicate.And(operand);
          }
 
-         public void Or(Expression<Func<TValueSource, bool>> operand)
+         public void Or(Expression<Func<TCriteria, bool>> operand)
          {
             Assert.IsNotNull(operand, nameof(operand));
-            owner.ValueSelectorExpr = owner.ValueSelectorExpr.Or(operand);
+            owner.CriteriaPredicate = owner.CriteriaPredicate.Or(operand);
          }
 
-         public void RevAnd(Expression<Func<TValueSource, bool>> operand)
+         public void RevAnd(Expression<Func<TCriteria, bool>> operand)
          {
             Assert.IsNotNull(operand, nameof(operand));
-            owner.ValueSelectorExpr = operand.And(owner.ValueSelectorExpr);
+            owner.CriteriaPredicate = operand.And(owner.CriteriaPredicate);
          }
 
-         public void RevOr(Expression<Func<TValueSource, bool>> operand)
+         public void RevOr(Expression<Func<TCriteria, bool>> operand)
          {
             Assert.IsNotNull(operand, nameof(operand));
-            owner.ValueSelectorExpr = operand.Or(owner.ValueSelectorExpr);
+            owner.CriteriaPredicate = operand.Or(owner.CriteriaPredicate);
          }
 
-         public static implicit operator Expression<Func<TValueSource, bool>>(SourcePredicateProperty operand)
+         public static implicit operator Expression<Func<TCriteria, bool>>(CriteriaProperty operand)
          {
-            return operand?.owner?.ValueSelectorExpr;
+            return operand?.owner?.CriteriaPredicate;
          }
       }
    }

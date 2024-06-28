@@ -50,9 +50,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// </summary>
       /// <param name="db">The Database in which to start the transaction</param>
       /// <param name="asWorkingDatabase">A value indicating if the Database
-      /// should become the current working database during the life of the 
-      /// transaction. This argument is only applicable to databases that are
-      /// not open in the AutoCAD drawing editor, and do not represent external
+      /// should be made the current working database for the life of the 
+      /// transaction. This argument is not applicable to databases that are
+      /// open in the AutoCAD editor, or databases representing external
       /// references.</param>
 
       public DatabaseTransaction(Database db, bool asWorkingDatabase = true) 
@@ -434,7 +434,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return this.db.GetBlockReferences(pattern, this, mode, predicate);
       }
 
-      /// SymbolUtilityServices methods expressed as instance properties:
+      /// SymbolUtilityServices methods transposed to instance properties:
 
       public ObjectId ModelSpaceBlockId => 
          SymbolUtilityServices.GetBlockModelSpaceId(db);
@@ -458,6 +458,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          SymbolUtilityServices.IsCompatibilityMode(db);
       
    }
+
 }
 
 
