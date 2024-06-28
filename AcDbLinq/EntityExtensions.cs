@@ -71,12 +71,19 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       public static Extents3d GeometricExtents(this IEnumerable<Entity> entities)
       {
          Assert.IsNotNull(entities, nameof(entities));
-         Extents3d extents = new Extents3d(Point3d.Origin, Point3d.Origin);
-         foreach(var entity in entities)
+         if(entities.Any())
          {
-            extents.AddExtents(entity.GeometricExtents);
+            Extents3d extents = entities.First().GeometricExtents;
+            foreach(var entity in entities.Skip(1))
+            {
+               extents.AddExtents(entity.GeometricExtents);
+            }
+            return extents;
          }
-         return extents;
+         else
+         {
+            return new Extents3d(Point3d.Origin, Point3d.Origin);
+         }
       }
    }
 }
