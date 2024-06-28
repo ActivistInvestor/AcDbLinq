@@ -259,27 +259,22 @@ namespace AutoCAD.AcDbLinq.Examples
 
       /// <summary>
       /// The next example demonstrates the 'composability' 
-      /// aspect of the DBObjectFilter class.  
+      /// aspects of the DBObjectFilter class.  
       /// 
       /// Composability is what allows runtime conditions to 
       /// determine what critiera is used to filter/query 
       /// objects.
       /// 
-      /// The example erases all insertions of blocks in model 
-      /// space having names starting with "DESK", that reside on 
-      /// unlocked layers whose names start with "FURNITURE".
+      /// The example erases all uniformly-scaled insertions of 
+      /// blocks in model space having names starting with "DESK", 
+      /// that reside on unlocked layers whose names start with 
+      /// "FURNITURE".
       /// 
       /// This example shows how to add an additional condition 
       /// to the query criteria used to qualify objects to be
       /// erased (in this case, that they must reside on a layer 
       /// whose name starts with "FURNITURE", in addition to the 
       /// layer being unlocked).
-      /// 
-      /// The example also uses the LayerFilter specialization of 
-      /// DBObjectFilter to filter entities based on properties of 
-      /// the layer they reside on, which provides a uncomplicated
-      /// alternative to creating instances of DBObjectFilter for
-      /// more-specific purposes.
       /// 
       /// DocumentTransaction:
       /// 
@@ -288,7 +283,7 @@ namespace AutoCAD.AcDbLinq.Examples
       /// unlocking is fully-automated by the DocumentTransaction.
       /// </summary>
 
-      [CommandMethod("ERASEDESKS2", CommandFlags.Session)]
+      [CommandMethod(nameof(EraseDesks2), CommandFlags.Session)]
       public static void EraseDesks2()
       {
          // Define a filter that includes only block 
@@ -296,68 +291,26 @@ namespace AutoCAD.AcDbLinq.Examples
          // using the BlockFilter specialization defined 
          // above:
 
-         var blockFilter = new BlockFilter(btr => btr.Name.Matches("DESK*"));
+         var filter = new BlockFilter(btr => btr.Name.Matches("DESK*"));
 
-         // Define a second filter that excludes block
-         // references residing on locked layers, this
-         // time using the LayerFilter specialization
-         // defined above:
+         /// Add a condition to the block filter, that includes 
+         /// only block references residing on unlocked layers 
+         /// having names that start with "FURNITURE":
 
-         var layerFilter = new LayerFilter<BlockReference>(layer => !layer.IsLocked);
+         filter.Add<LayerTableRecord>(br => br.LayerId,
+            layer => !layer.IsLocked && layer.Name.Matches("FURNITURE*"));
 
-         // Add an additional condition to the LayerFilter
-         // predicate that's applied to each LayerTableRecord, 
-         // requiring the layer's name start with "FURNITURE".
-         // 
-         // The resulting filter includes only BlockReferences 
-         // residing on an unlocked layer whose name starts with 
-         // "FURNITURE".
-         //
-         // The Criteria property represents the predicate that's
-         // applied to each LayerTableRecord, which is initially
-         // the predicate passed to the constructor, combined with
-         // any additional conditions added using the Add() or Or()
-         // methods, as is done here:
-
-         layerFilter.Criteria.And(layer => layer.Name.Matches("FURNITURE*"));
-
-         // After the above statement executes, the predicate that's
-         // applied to each LayerTableRecord becomes:
-         // 
-         //   layer => !layer.IsLocked && layer.Name.Matches("FURNITURE*");
-
-         // We can also manipulate the predicate that's applied to
-         // each Block reference as well. Here we add an additional 
-         // condition that excludes block references that are non-
-         // uniformly scaled. 
-         // 
-         // This criteria is applied to each BlockReference, rather
-         // than to each BlockTableRecord. The DBObjectFilter class 
-         // allows one to compose both per-instance and per-reference 
-         // criteria:
-
-         blockFilter.And(br => br.BlockTransform.IsUniscaledOrtho());
-
-         // The And() method also allows one to logically-combine two
-         // DBObjectFilters into a single DBObjectFilter that applys
-         // the logically-combined conditions of both filters.
-         //
-         // This call to And() causes the block filter to add the
-         // criteria defined by the layer filter::
-
-         blockFilter.And(layerFilter);
-
-         // At this point, the layerFilter is obsolete, and the
-         // blockFilter represents the logical union of itself
-         // and the layerFilter, so the blockFilter must be used
-         // to perform the query. With the two filters unioned
-         // into a single filter, each BlockReference must satisfy
-         // the criteria of both filters in order to be included
-         // in the result.
+         /// Add another 'ad-hoc' condition to the block filter 
+         /// that excludes non-uniformly scaled block references.
+         /// While the predicate supplied to the BlockFilter's
+         /// constructor operates on BlockTableRecords, note that
+         /// this predicate operates on BlockReferences:
+         
+         filter.And(br => br.BlockTransform.IsUniscaledOrtho());
 
          using(var tr = new DocumentTransaction())
          {
-            var desks = tr.GetModelSpaceObjects<BlockReference>().Where(blockFilter);
+            var desks = tr.GetModelSpaceObjects<BlockReference>().Where(filter);
 
             /// Erase all uniformly-scaled DESK blocks that are on 
             /// a locked layer whose name starts with "FURNITURE",
