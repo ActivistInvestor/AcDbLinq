@@ -1039,11 +1039,14 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// Try to get the containing Database of a sequence of DBObjects
       /// </summary>
 
-      public static Database TryGetDatabase(this IEnumerable<DBObject> objects)
+      public static Database TryGetDatabase(this IEnumerable<DBObject> objects,
+         bool throwOnFailed = false)
       {
          if(objects == null)
             throw new ArgumentNullException(nameof(objects));
-         return objects.FirstOrDefault()?.Database;
+         Database db = objects.FirstOrDefault()?.Database;
+         AcRx.ErrorStatus.NoDatabase.ThrowIf(throwOnFailed && db == null);
+         return db;
       }
 
       /// <summary>

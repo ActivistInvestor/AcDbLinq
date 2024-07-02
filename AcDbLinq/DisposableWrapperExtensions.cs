@@ -15,9 +15,16 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
    {
       /// <summary>
       /// Replaces one DisposableWrapper with another.
+      /// 
+      /// After replacement, the <paramref name="replacement"/> argument
+      /// becomes the managed wrapper for the <paramref name="wrapper"/>'s
+      /// UnmanagedObject, and all interaction with the native object must
+      /// be through the replacment. The <paramref name="wrapper"/> argument
+      /// is no-longer usable or valid after this method returns.
       /// </summary>
-      /// <param name="wrapper"></param>
-      /// <param name="replacement"></param>
+      /// <param name="wrapper">The DisposableWrapper that is to be replaced</param>
+      /// <param name="replacement">The DisposableWrapper that is to replace the 
+      /// <paramref name="wrapper"/> argument</param>
       /// <exception cref="InvalidOperationException"></exception>
 
       public static void ReplaceWith(this DisposableWrapper wrapper, DisposableWrapper replacement)

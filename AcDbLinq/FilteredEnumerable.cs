@@ -30,7 +30,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       IEnumerable<T> source = new T[0];
 
       public FilteredEnumerable(IEnumerable<T> source,
-         Func<T, ObjectId> keySelector,
+         Expression<Func<T, ObjectId>> keySelector,
          Expression<Func<TCriteria, bool>> predicate) : base(keySelector, predicate)
       {
          this.source = source ?? new T[0];
@@ -57,7 +57,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    {
       public static FilteredEnumerable<T, TSource> AsFiltered<T, TSource>(
             this IEnumerable<T> source, 
-            Func<T, ObjectId> keySelector,
+            Expression<Func<T, ObjectId>> keySelector,
             Expression<Func<TSource, bool>> predicate)
 
          where T : DBObject
@@ -70,7 +70,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       public static FilteredEnumerable<T, TSource> AsFiltered<T, TSource>(
             this BlockTableRecord source,
             Transaction trans,
-            Func<T, ObjectId> keySelector,
+            Expression<Func<T, ObjectId>> keySelector,
             Expression<Func<TSource, bool>> predicate,
             OpenMode mode = OpenMode.ForRead,
             bool exact = false)

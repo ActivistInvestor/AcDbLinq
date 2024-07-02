@@ -10,6 +10,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Runtime.Diagnostics;
 
@@ -98,6 +99,35 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          }
       }
 
+      public static string ToShortString(this Expression expr)
+      {
+         string res = expr?.ToString() ?? "(null)";
+         return Reformat(StripNamespaces(res));
+      }
+
+      static string Reformat(string s)
+      {
+         return s.Replace("AndAlso", "\n    AndAlso")
+            .Replace("OrElse", "\n    OrElse");
+      }
+
+      static string StripNamespaces(string input)
+      {
+         return input.Replace("Autodesk.AutoCAD.", "")
+            .Replace("DatabaseServices.", "")
+            .Replace("ApplicationServices.", "")
+            .Replace("EditorInput.", "")
+            .Replace("AutoCAD.AcDbLinq.", "")
+            .Replace("Extensions.", "")
+            .Replace("Expressions.", "")
+            .Replace("Examples.", "");
+      }
+
+      public static string ToShortString(this Type type)
+      {
+         return type.Name;
+      }
+
       /// <summary>
       /// Like Enumerable.First() except it targets the
       /// non-generic IEnumerable.
@@ -154,18 +184,18 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <param name="collection"></param>
       /// <returns></returns>
 
-      public static IDisposable EnsureDispose(this DBObjectCollection collection)
+      public static DBObjectCollection EnsureDispose(this DBObjectCollection collection)
       {
-         return new ItemsDisposer(collection);
+         return new ItemsDisposer<DBObjectCollection>(collection);
       }
 
-      class ItemsDisposer : IDisposable 
+      class ItemsDisposer<T> : IDisposable where T: IEnumerable
       {
-         IEnumerable items;
+         T items;
          bool disposed;
          bool disposeOwner = true;
 
-         public ItemsDisposer(IEnumerable items, bool disposeOwner = true)
+         public ItemsDisposer(T items, bool disposeOwner = true)
          {
             this.items = items;
             this.disposeOwner = disposeOwner;
@@ -177,9 +207,14 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             {
                disposed = true;
                items.OfType<IDisposable>().Dispose();
-               if(disposeOwner && items is IDisposable disposable)
-                  disposable.Dispose();
+               if(disposeOwner)
+                  (items as IDisposable)?.Dispose();
             }
+         }
+
+         public static implicit operator T(ItemsDisposer<T> disposer)
+         {
+            return disposer.items;
          }
       }
    }

@@ -8,10 +8,17 @@
 /// DBObjects in Linq queries and other sceanrios.
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
+using System.Linq.Expressions.Extensions;
 using System.Linq.Expressions.Predicates;
+using System.Runtime.CompilerServices;
+using System.Text;
 using System.Windows.Input;
+using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Runtime.Diagnostics;
 
 
@@ -109,7 +116,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// 
    /// <code>
    /// 
-   ///    var unlocked = 
+   ///    var unlockedFilter = 
    ///      new DBObjectFilter<Entity, LayerTableRecord>(
    ///         entity => entity.LayerId,
    ///         layer => !layer.IsLocked
@@ -117,78 +124,88 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// 
    ///    IEnumerable<Entity> entities = ....
    ///     
-   ///    foreach(entity in entities.Where(unlocked))
+   ///    foreach(entity in entities.Where(unlockedFilter))
    ///    {
    ///       // entity is not on a locked layer
    ///    }
    ///    
+   /// Without using the cached relational lookup performed by
+   /// DBObjectFilter, one would need to access the referenced
+   /// layer of each entity, accessing each layer numerous times, 
+   /// to determine if each entity resides on a locked layer.
+   ///    
    /// </code>
    /// <typeparam name="TFiltered">The type that is to be filtered/queried</typeparam>
-   /// <typeparam name="TCriteria">The type that provides the filter criteria</typeparam>
+   /// <typeparam name="TCriteria">The type that provides the filter/query criteria</typeparam>
 
-   public class DBObjectFilter<TFiltered, TCriteria>
-      : DBObjectDataMap<TFiltered, TCriteria, bool> 
+   public class DBObjectFilter<TFiltered, TCriteria> 
+      : DBObjectDataMap<TFiltered, TCriteria, bool>, IFilter<TFiltered>
 
       where TFiltered : DBObject
       where TCriteria : DBObject
 
    {
-      Expression<Func<TCriteria, bool>> criteriaPredicate;
-      CriteriaProperty sourcePredicateProperty;
+      Expression<Func<TCriteria, bool>> criteriaExpression;
+      PredicateProperty predicateProperty;
+      CriteriaProperty criteriaProperty;
+
+      DBObjectFilterList filters;
+
+      // The Type key is a TCriteria
+      //Dictionary<(Type, Expression<Func<TFiltered, ObjectId>>), DBObjectDataMap> filters
+      //   = new Dictionary<(Type, Expression<Func<TFiltered, ObjectId>>), DBObjectDataMap>();
 
       public DBObjectFilter(
-         Func<TFiltered, ObjectId> keySelector,
+         Expression<Func<TFiltered, ObjectId>> keySelector,
          Expression<Func<TCriteria, bool>> valueSelector)
          
          : base(keySelector, valueSelector.Compile())
       {
-         this.criteriaPredicate = valueSelector;
+         this.criteriaExpression = valueSelector;
+         filters = new DBObjectFilterList(this);
       }
 
       /// <summary>
       /// The predicate that's applied to each TCriteria
       /// </summary>
       
-      Expression<Func<TCriteria, bool>> CriteriaPredicate
+      Expression<Func<TCriteria, bool>> CriteriaExpression
       {
          get
          {
-            return criteriaPredicate;
+            return criteriaExpression;
          }
          set
          {
             Assert.IsNotNull(value, nameof(value));
-            if(value != criteriaPredicate)
+            if(value != criteriaExpression)
             {
-               criteriaPredicate = value;
-               valueSelector = CompileAndInvoke;
+               CheckIsRunning();
+               criteriaExpression = value;
+               valueSelector = criteriaExpression.Compile();
             }
          }
       }
 
-      bool CompileAndInvoke(TCriteria arg)
+      public bool IsMatch(TFiltered candidate)
       {
-         valueSelector = criteriaPredicate.Compile();
-         Invalidate();
-         return valueSelector(arg);
+         return this[candidate];
       }
 
-      public Func<TFiltered, bool> Predicate => Accessor;
+      public Func<TFiltered, bool> MatchPredicate => Accessor;
 
-      public CriteriaProperty Criteria
-      {
-         get
-         {
-            if(sourcePredicateProperty == null)
-               sourcePredicateProperty = new CriteriaProperty(this);
-            return sourcePredicateProperty;
-         }
-      }
+      public PredicateProperty Predicate => 
+         predicateProperty ?? (predicateProperty = new PredicateProperty(this));
+
+      public CriteriaProperty Criteria => 
+         criteriaProperty ?? (criteriaProperty = new CriteriaProperty(this));
 
       /// <summary>
-      /// Combines this filter with another DBObjectFilter<TFiltered,...>
-      /// in a logical 'and' or 'or' operation. Can also combine the filter
-      /// with an arbitrary Expression<Func<TFiltered, bool>>.
+      /// Combines this filter with another DBObjectFilter in 
+      /// a logical 'and' or 'or' operation. 
+      /// 
+      /// Can also be used to logically-combine the filter with 
+      /// an arbitrary Expression<Func<TFiltered, bool>>.
       /// 
       /// This method modifies the instance to perform a
       /// logical and/or operation on the conditions defined
@@ -208,6 +225,13 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return this;
       }
 
+      // Can't overload because calls become ambiguous
+      // between this and Add(Expression<Func<TCriteria, bool>>)
+      //public void Add(Expression<Func<TFiltered, bool>> operand)
+      //{
+      //   And(operand);
+      //}
+
       public DBObjectFilter<TFiltered, TCriteria> Or(
          Expression<Func<TFiltered, bool>> operand)
       {
@@ -217,109 +241,118 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       /// <summary>
-      /// Slated to superseed the And() and Or() methods for
-      /// DBObjectFilters, but not for arbitrary predicates.
+      /// Adds a condition to the test applied to TCriteria
+      /// instances. The Logical argument specifies which
+      /// logical operation the predicate is to be combined 
+      /// using. The default Logical operation is Logcal.And
+      /// 
+      /// The Criteria predicate from other filters can be
+      /// added along with arbitrary or 'ad-hoc' predicates.
+      /// To add the criteria predicate from another filter,
+      /// it must have the same TCriteria generic argument.
+      /// The filter itself can be passed to this method to
+      /// logically-combine its criteria predicate with the 
+      /// criteria predicate of the instance.
       /// </summary>
-      /// <typeparam name="TNewCriteria"></typeparam>
-      /// <param name="logicalOperation"></param>
-      /// <param name="keySelector"></param>
-      /// <param name="predicate"></param>
-      /// <exception cref="ArgumentException"></exception>
+      /// <param name="predicate">A predicate expression that
+      /// is applied to TCriteria instances.</param>
 
-      public void Add<TNewCriteria>(
-         Func<TFiltered, ObjectId> keySelector,
-         Expression<Func<TNewCriteria, bool>> predicate) where TNewCriteria : DBObject
+      /// Revised: These have been made non-public, and must 
+      /// be accessed through the Criteria property
+      
+      void Add(Expression<Func<TCriteria, bool>> predicate)
       {
-         Add<TNewCriteria>(Logical.And, keySelector, predicate);
+         Add(Logical.And, predicate);
       }
 
-      HashSet<Type> criteriaTypes = new HashSet<Type>(new Type[] { typeof(TCriteria) });
+      void Add(Logical operation, Expression<Func<TCriteria, bool>> predicate) 
+      {
+         Assert.IsNotNull(predicate, nameof(predicate));
+         switch(operation)
+         {
+            case Logical.And:
+               CriteriaExpression = CriteriaExpression.And(predicate);
+               break;
+            case Logical.Or:
+               CriteriaExpression = CriteriaExpression.Or(predicate);
+               break;
+            case Logical.ReverseAnd:
+               CriteriaExpression = predicate.And(CriteriaExpression);
+               break;
+            case Logical.ReverseOr:
+               CriteriaExpression = predicate.Or(CriteriaExpression);
+               break;
+            default:
+               throw new NotSupportedException(operation.ToString());
+         }
+      }
+
 
       /// <summary>
       /// Adds a child DBObjectFilter whose predicate 
       /// is logically-combined with the predicate of
-      /// the instance the method is called on.
+      /// the instance this method is called on.
       /// 
-      /// This method cannot be called multiple times
-      /// with the same generic argument type. Doing so
-      /// would be redunduant (e.g., the predicate can
-      /// be logically-combined with the predicate of
-      /// the existing child filter targeting the same
-      /// type).
+      /// If the instance already contains a child filter
+      /// targeting the given generic argument type and
+      /// has a keySelector that is identical to the one
+      /// passed as the argument, that existing filter's 
+      /// predicate is combined with the given predicate, 
+      /// and a new child filter is not created or added 
+      /// to the instance.
+      /// 
+      /// If no child filter exists that targets the given
+      /// generic argument type and has a keySelector that
+      /// is equivalent to the first argument, a new child 
+      /// filter is added to the instance and is logically 
+      /// combined with the instance.
       /// </summary>
-      /// <typeparam name="TNewCriteria"></typeparam>
-      /// <param name="logicalOperation"></param>
-      /// <param name="keySelector"></param>
-      /// <param name="predicate"></param>
+      /// <typeparam name="TNewCriteria">The type of the
+      /// predicate's argument</typeparam>
+      /// <param name="operation">The logical operation to
+      /// combine the filters or predicates with</param>
+      /// <param name="keySelector">A delegate that produces
+      /// the ObjectId key for a given TFiltered instance</param>
+      /// <param name="predicate">A predicate that is applied
+      /// to the TCriteria instance referenced by the ObjectId
+      /// return by the keySelector, that determines if the 
+      /// TFiltered instance satisfies the filter criteria</param>
       /// <exception cref="ArgumentException"></exception>
       /// <exception cref="NotSupportedException"></exception>
 
-      public void Add<TNewCriteria>(Logical logicalOperation,
-         Func<TFiltered, ObjectId> keySelector, 
+      public DBObjectFilter<TFiltered, TNewCriteria> Add<TNewCriteria>(Logical operation,
+         Expression<Func<TFiltered, ObjectId>> keySelector, 
          Expression<Func<TNewCriteria, bool>> predicate) where TNewCriteria: DBObject
       {
          Assert.IsNotNull(keySelector, nameof(keySelector));
          Assert.IsNotNull(predicate, nameof(predicate));
 
-         if(!criteriaTypes.Add(typeof(TNewCriteria)))
-            throw new ArgumentException(
-               $"Instance already contains a child filter targeting {typeof(TNewCriteria).Name}");
-
-         var newFilter = new DBObjectFilter<TFiltered, TNewCriteria>(
-            keySelector, predicate);
-
-         switch(logicalOperation)
+         DBObjectDataMap item = filters[typeof(TNewCriteria), keySelector];
+         if(item != null)
          {
-            case Logical.And: 
-               And(newFilter); 
-               break;
-            case Logical.Or: 
-               Or(newFilter); 
-               break;
-            case Logical.AndFirst:
-               ReverseAnd(newFilter);
-               break;
-            case Logical.OrFirst: 
-               ReverseOr(newFilter); 
-               break;
-            default:
-               throw new NotSupportedException(nameof(logicalOperation));
+            var result = (DBObjectFilter<TFiltered, TNewCriteria>)item;
+            result.Criteria.Add(operation, predicate);
+            return result;
          }
+
+         // No existing filter is compatible,
+         // so a new filter instance is needed:
+         
+         var filter = new DBObjectFilter<TFiltered, TNewCriteria>(keySelector, predicate);
+         filters.Add(filter); // , filter.KeySelectorExpression);
+         Predicate.Add(operation, filter);
+         return filter;
       }
 
       /// <summary>
-      /// These methods are like And() and Or(), but reverse the 
-      /// order of evaluation.
-      /// 
-      /// With And() and Or(), the instance expression is evaluated
-      /// first and if it evaluates to true, the expression argument
-      /// is then evaluated.
-      /// 
-      /// With RevAnd() and RevOr(), the expression argument is
-      /// evaluated first and if it evaluates to true, the instance
-      /// expression is then evaluated.
+      /// An overload of the above that uses Logical.And as the default operation
       /// </summary>
-      /// <param name="operand">The operand expression</param>
 
-      public DBObjectFilter<TFiltered, TCriteria> ReverseAnd(
-         Expression<Func<TFiltered, bool>> operand)
+      public DBObjectFilter<TFiltered, TNewCriteria> Add<TNewCriteria>(
+         Expression<Func<TFiltered, ObjectId>> keySelector,
+         Expression<Func<TNewCriteria, bool>> predicate) where TNewCriteria : DBObject
       {
-         Assert.IsNotNull(operand, nameof(operand));
-         GetValueExpression = operand.And(GetValueExpression);
-         return this;
-      }
-
-      public DBObjectFilter<TFiltered, TCriteria> ReverseOr(
-         Expression<Func<TFiltered, bool>> operand)
-      {
-         Assert.IsNotNull(operand, nameof(operand));
-         GetValueExpression = operand.Or(GetValueExpression);
-         return this;
-      }
-
-      public bool IsMatch(TFiltered candidate)
-      {
-         return this[candidate];
+         return Add<TNewCriteria>(Logical.And, keySelector, predicate);
       }
 
       public static implicit operator 
@@ -336,6 +369,68 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return filter.GetValueExpression;
       }
 
+      public static implicit operator
+      Expression<Func<TCriteria, bool>>(DBObjectFilter<TFiltered, TCriteria> filter)
+      {
+         Assert.IsNotNull(filter, nameof(filter));
+         return filter.CriteriaExpression;
+      }
+
+      public class PredicateProperty
+      {
+         DBObjectFilter<TFiltered, TCriteria> owner;
+
+         public PredicateProperty(DBObjectFilter<TFiltered, TCriteria> owner)
+         {
+            this.owner = owner;
+         }
+
+         public DBObjectFilter<TFiltered, TCriteria> And(Expression<Func<TFiltered, bool>> predicate)
+         {
+            Add(Logical.And, predicate);
+            return owner;
+         }
+
+         public DBObjectFilter<TFiltered, TCriteria> Or(Expression<Func<TFiltered, bool>> predicate)
+         {
+            Add(Logical.Or, predicate);
+            return owner;
+         }
+
+         public void Add(Expression<Func<TFiltered, bool>> predicate)
+         {
+            Add(Logical.And, predicate);
+         }
+
+         public void Add(Logical operation, Expression<Func<TFiltered, bool>> predicate)
+         {
+            Assert.IsNotNull(predicate, nameof(predicate));
+            switch(operation)
+            {
+               case Logical.And:
+                  owner.GetValueExpression = owner.GetValueExpression.And(predicate);
+                  break;
+               case Logical.Or:
+                  owner.GetValueExpression = owner.GetValueExpression.Or(predicate);
+                  break;
+               case Logical.ReverseAnd:
+                  owner.GetValueExpression = predicate.And(owner.GetValueExpression);
+                  break;
+               case Logical.ReverseOr:
+                  owner.GetValueExpression = predicate.Or(owner.GetValueExpression);
+                  break;
+               default:
+                  throw new NotSupportedException(operation.ToString());
+            }
+         }
+
+         public static implicit operator Func<TFiltered, bool>(PredicateProperty prop)
+         {
+            Assert.IsNotNull(prop, nameof(prop));
+            return prop.owner.Accessor;
+         }
+      }
+
       public class CriteriaProperty
       {
          DBObjectFilter<TFiltered, TCriteria> owner;
@@ -345,50 +440,79 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             this.owner = owner;
          }
 
+         public void Add(Expression<Func<TCriteria, bool>> predicate)
+         {
+            owner.Add(Logical.And, predicate);
+         }
+
+         public void Add(Logical operation, Expression<Func<TCriteria, bool>> predicate)
+         {
+            Assert.IsNotNull(predicate);
+            owner.Add(operation, predicate);
+         }
+
          public void And(Expression<Func<TCriteria, bool>> operand)
          {
             Assert.IsNotNull(operand, nameof(operand));
-            owner.CriteriaPredicate = owner.CriteriaPredicate.And(operand);
+            owner.CriteriaExpression = owner.CriteriaExpression.And(operand);
          }
 
          public void Or(Expression<Func<TCriteria, bool>> operand)
          {
             Assert.IsNotNull(operand, nameof(operand));
-            owner.CriteriaPredicate = owner.CriteriaPredicate.Or(operand);
+            owner.CriteriaExpression = owner.CriteriaExpression.Or(operand);
          }
 
          public void RevAnd(Expression<Func<TCriteria, bool>> operand)
          {
             Assert.IsNotNull(operand, nameof(operand));
-            owner.CriteriaPredicate = operand.And(owner.CriteriaPredicate);
+            owner.CriteriaExpression = operand.And(owner.CriteriaExpression);
          }
 
          public void RevOr(Expression<Func<TCriteria, bool>> operand)
          {
             Assert.IsNotNull(operand, nameof(operand));
-            owner.CriteriaPredicate = operand.Or(owner.CriteriaPredicate);
+            owner.CriteriaExpression = operand.Or(owner.CriteriaExpression);
          }
 
          public static implicit operator Expression<Func<TCriteria, bool>>(CriteriaProperty operand)
          {
-            return operand?.owner?.CriteriaPredicate;
+            return operand?.owner?.CriteriaExpression;
          }
 
-      }// CriteriaProperty
+      } // CriteriaProperty
 
-   }
+      /// <summary>
+      /// A diagnostic function that emits a dump of the current 
+      /// instance expressions and generic argument types:
+      /// </summary>
+      /// <param name="label"></param>
+      /// <returns></returns>
+      
+      // [DebuggerStepThrough]
+      public override string Dump(string label = null, string indent = "")
+      {
+         StringBuilder sb = new StringBuilder(base.Dump(label, indent));
+         sb.AppendLine($"{indent}Key selector:       {this.KeySelectorExpression.ToShortString()}");
+         sb.AppendLine($"{indent}Criteria predicate: {this.criteriaExpression.ToShortString()}");
+         sb.AppendLine($"{indent}Match predicate:    {this.GetValueExpression.ToShortString()}");
+         sb.AppendLine($"{indent}Child filter count: {filters.Count-1}");
+         if(filters.Count > 1) // First item is 'the current instance'.
+         {
+            sb.AppendLine("Child filters: ");
+            int i = 0;
+            foreach(var childFilter in filters)
+            {
+               if(childFilter != this)
+                  sb.Append(childFilter.Dump($"child {i++}", indent + "  "));
+            }
+         }
+         return sb.ToString();
+      }
 
-   public enum Logical
-   {
-      And, 
-      Or, 
-      AndFirst, 
-      OrFirst, 
-      Not
-   }
+   } // DBObjectFilter
 
-
-}
+} // namespace
 
 
 

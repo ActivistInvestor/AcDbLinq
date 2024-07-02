@@ -94,8 +94,11 @@ namespace Autodesk.AutoCAD.Runtime
       public static void Requires<T>(this AcRx.ErrorStatus es, ObjectId id, bool exact = false, string msg = "")
          where T:RXObject
       {
+         AcRx.ErrorStatus.NullObjectId.ThrowIf(id.IsNull);
          if(!RXClass<T>.IsAssignableFrom(id, exact))
-            throw new AcRx.Exception(id.IsNull ? AcRx.ErrorStatus.NullObjectId : es, msg).Log(es, id, exact, msg);
+            throw new AcRx.Exception(es, !string.IsNullOrWhiteSpace(msg) ? msg 
+               : $"(requires a {typeof(T).Name})")
+                  .Log(es, id, exact, msg);
       }
 
       public static void ThrowIfNot<T>(this AcRx.ErrorStatus es, ObjectId id, bool exact = false, string msg = "") 

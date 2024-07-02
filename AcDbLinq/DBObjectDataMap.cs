@@ -11,6 +11,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Linq.Expressions.Predicates;
 using Autodesk.AutoCAD.ApplicationServices.Core;
+using Autodesk.AutoCAD.GraphicsInterface;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Runtime.Diagnostics;
 using AcRx = Autodesk.AutoCAD.Runtime;
@@ -31,10 +32,10 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// 
    /// See the practical examples and discussion below for more 
    /// on how this class can be used to perform relational data
-   /// lookups. 
+   /// queries. 
    /// 
    /// While one can say that this class is, at its essence, an
-   /// elaborate wrapper around the .NET Dictionary class, there
+   /// glorified wrapper around the .NET Dictionary class, there
    /// is a bit more to it than that. 
    /// 
    /// This class automates and simplifies a common pattern of
@@ -157,31 +158,31 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// which the cached data is derived</typeparam>
    /// <typeparam name="TValue">The type of the cached data</typeparam>
 
-
-   public class DBObjectDataMap<TFiltered, TCriteria, TValue> 
-      where TFiltered : DBObject
-      where TCriteria : DBObject
+   public class DBObjectDataMap<TKeySource, TValueSource, TValue> : DBObjectDataMap
+      where TKeySource : DBObject
+      where TValueSource : DBObject
    {
       Dictionary<ObjectId, TValue> map = null;
 
-      Expression<Func<TFiltered, TValue>> getValueExpression = null;
-      // visibility change to protected has not been tested
-      Func<TFiltered, TValue> getValue = null;
-
-      protected Dictionary<ObjectId, TValue> Map => map;
-      protected Func<TFiltered, ObjectId> keySelector;
-      protected Func<TCriteria, TValue> valueSelector;
+      Expression<Func<TKeySource, TValue>> getValueExpression = null;
+      protected readonly Expression<Func<TKeySource, ObjectId>> keySelectorExpression = null;
+      Func<TKeySource, TValue> getValue = null;
+      protected Func<TKeySource, ObjectId> keySelector;
+      protected Func<TValueSource, TValue> valueSelector;
       static readonly bool isPredicate = typeof(TValue) == typeof(bool);
+      protected Dictionary<ObjectId, TValue> Map => map;
 
       public DBObjectDataMap(
-         Func<TFiltered, ObjectId> keySelector,
-         Func<TCriteria, TValue> valueSelector) 
+         Expression<Func<TKeySource, ObjectId>> keySelector,
+         Func<TValueSource, TValue> valueSelector) 
       {
          Assert.IsNotNull(keySelector, nameof(keySelector));
          Assert.IsNotNull(valueSelector, nameof(valueSelector));
          this.map = CreateMap();
-         this.keySelector = keySelector;
+         this.keySelectorExpression = keySelector;
+         this.keySelector = keySelector.Compile();
          this.valueSelector = valueSelector;
+         /// Critical for optimized performance in unmodified filters
          this.getValueExpression = arg => GetValue(arg);
          this.getValue = GetValue;
       }
@@ -191,71 +192,80 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return new Dictionary<ObjectId, TValue>();
       }
 
-      protected Expression<Func<TFiltered, TValue>> GetValueExpression
+      // protected Expression<Func<TKeySource, ObjectId>> KeySelectorExpression => keySelectorExpression;
+      public override Expression KeySelectorExpression => keySelectorExpression;
+
+      protected Expression<Func<TKeySource, TValue>> GetValueExpression
       {
-         get { return getValueExpression; }
+         get => getValueExpression; 
          set
          {
             Assert.IsNotNull(value, nameof(value));
             if(getValueExpression != value)
             {
+               CheckIsRunning();
                getValueExpression = value;
-               // AcConsole.WriteLine($"set: {getValueExpression.ToString()}");
-               getValue = CompileAndInvoke;
+               getValue = getValueExpression.Compile();
             }
          }
       }
 
-      /// <summary>
-      /// Compiles a modified expression the first
-      /// time the resulting delegate is called. 
-      /// </summary>
-
-      TValue CompileAndInvoke(TFiltered arg)
+      protected void CheckIsRunning()
       {
-         getValue = getValueExpression.Compile();
-         Invalidate();
-         AcConsole.WriteLine(getValueExpression.ToString());
-         return getValue(arg);
+         if(isRunning)
+            throw new InvalidOperationException("Cannot modify criteria while filtering is in progress");
       }
 
       /// <summary>
-      /// Produces a value for the given <typeparamref name="TFiltered"/>> 
+      /// Produces a value for the given <typeparamref name="TKeySource"/>> 
       /// instance.
       /// </summary>
-      /// <param name="key">A <typeparamref name="TFiltered"/> whose
+      /// <param name="key">A <typeparamref name="TKeySource"/> whose
       /// associated value is to be retrieved.</param>
       /// <returns>The associated value</returns>
 
-      public TValue this[TFiltered key] => getValue(key);
+      public TValue this[TKeySource key] => getValue(key);
 
       /// <summary>
       /// The implicit conversion operator returns the value
       /// of this, which is the method called by the indexer.
       /// </summary>
 
-      public /*virtual*/ Func<TFiltered, TValue> Accessor => getValue;
+      public Func<TKeySource, TValue> Accessor => getValue;
 
       /// <summary>
       /// This method is not directly callable from the 
-      /// outside, but can be used from the outside by 
-      /// assigning the value of the Accessor property to
-      /// a delegate of the type Func<TFiltered, TValue>
-      /// and calling the delegate.
+      /// outside. It is the default value of the getValue
+      /// delegate and as such, may be called as part of
+      /// a more-complex expression that can result from 
+      /// logically-combining this method with one or more
+      /// other expressions. The getValue delegate always
+      /// contains the complete predicate that calls this 
+      /// method internally.
       /// </summary>
-      /// <param name="keySource">The <typeparamref name="TFiltered"/> instance
+      /// <param name="keySource">The <typeparamref name="TKeySource"/> instance
       /// for which a TValue is being requested.</param>
       /// <returns>The TValue for the given <paramref name="keySource"/></returns>
       /// <exception cref="AcRx.Exception"></exception>
 
-      TValue GetValue(TFiltered keySource)
+      bool isRunning = false;
+      TValue GetValue(TKeySource keySource)
       {
+         if(!isRunning)
+         {
+            isRunning = true;
+            OnBeginFiltering();
+         }
          ObjectId id = keySelector(keySource);
          if(id.IsNull)
             return GetDefaultValue(keySource);
          if(!map.TryGetValue(id, out TValue value))
             value = GetValueForKey(id, keySource);
          return value;
+      }
+
+      protected virtual void OnBeginFiltering()
+      {
       }
 
       /// <summary>
@@ -272,7 +282,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <returns></returns>
       /// <exception cref="NotImplementedException"></exception>
 
-      protected virtual TValue GetDefaultValue(TFiltered keySource)
+      protected virtual TValue GetDefaultValue(TKeySource keySource)
       {
          throw new AcRx.Exception(AcRx.ErrorStatus.NullObjectId);
       }
@@ -295,10 +305,10 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <returns>The result of invoking the valueSelector delegate
       /// on an instance of a TCriteria having the given ObjectId</returns>
 
-      protected virtual TValue GetValueForKey(ObjectId id, TFiltered keySource)
+      protected virtual TValue GetValueForKey(ObjectId id, TKeySource keySource)
       {
          AcRx.ErrorStatus.NullObjectId.ThrowIf(id.IsNull);
-         using(TCriteria source = (TCriteria)id.Open(OpenMode.ForRead))
+         using(TValueSource source = (TValueSource)id.Open(OpenMode.ForRead))
          {
             TValue value = GetValueFromSource(source);
             if(value != null)
@@ -316,12 +326,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// Overrides of this can supermessage this base method to return
       /// the value, before and/or after they operate on the argument.
       /// </summary>
-      /// <param name="source">The <typeparamref name="TCriteria"/> used
+      /// <param name="source">The <typeparamref name="TValueSource"/> used
       /// to produce the result</param>
       /// <returns>The result of invoking the valueSelector delegate
-      /// on the <typeparamref name="TCriteria"/> instance</returns>
+      /// on the <typeparamref name="TValueSource"/> instance</returns>
 
-      protected virtual TValue GetValueFromSource(TCriteria source)
+      protected virtual TValue GetValueFromSource(TValueSource source)
          => valueSelector(source);
 
       /// <summary>
@@ -330,12 +340,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <param name="source"></param>
       /// <param name="value"></param>
 
-      protected virtual void Add(TCriteria source, TValue value)
+      protected virtual void Add(TValueSource source, TValue value)
       {
          if(value != null)
          {
             map[source.ObjectId] = value;
-            OnMapChanged();
+            OnMapChanged(MapChangeType.ItemAdded, source.ObjectId);
          }
       }
 
@@ -346,7 +356,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       protected virtual void Remove(ObjectId id)
       {
          if(map.Remove(id))
-            OnMapChanged();
+            OnMapChanged(MapChangeType.ItemRemoved, id);
       }
 
       /// <summary>
@@ -358,7 +368,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          if(map.Count > 0)
          {
             map.Clear();
-            OnMapChanged();
+            OnMapChanged(MapChangeType.Clear);
          }
       }
 
@@ -384,13 +394,13 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       /// <summary>
-      /// Invalidates a specified cache entry having the
+      /// Invalidates the cache entry having the
       /// specified key.
       /// </summary>
-      /// <param name="id">The ObjectId key of a <typeparamref name="TCriteria"/>
+      /// <param name="id">The ObjectId key of a <typeparamref name="TValueSource"/>
       /// instance whose associated cache entry is to be invalidated</param>
 
-      public void Invalidate(ObjectId id)
+      public override void Invalidate(ObjectId id)
       {
          Remove(id);
       }
@@ -399,7 +409,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// Invalidates the entire cache
       /// </summary>
 
-      public void Invalidate()
+      public override void Invalidate()
       {
          Clear();
       }
@@ -409,6 +419,10 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// </summary>
 
       public ICollection<ObjectId> ObjectIds => map.Keys;
+
+      public override Type TKeySourceType => typeof(TKeySource);
+      public override Type TValueSourceType => typeof(TValueSource);
+      public override Type TValueType => typeof(TValue);
 
       /// <summary>
       /// Invalidates cached data associated with all 
@@ -422,8 +436,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       public void Invalidate(Database db)
       {
          int cnt = map.Count;
-         if(Purge(id => id.Database == db))
-            OnMapChanged();
+         Purge(id => id.Database == db);
       }
 
       bool Purge(Func<ObjectId, bool> predicate)
@@ -432,33 +445,26 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          map = map.Where(p => !predicate(p.Key)).ToDictionary(p => p.Key, p => p.Value);
          bool result = cnt != map.Count;
          if(result)
-            OnMapChanged();
+            OnMapChanged(MapChangeType.Clear);
          return result;
-      }
-
-      /// <summary>
-      /// Provides derived types with notification that
-      /// the contents of the data cache has changed.
-      /// </summary>
-      protected virtual void OnMapChanged()
-      {
       }
 
       /// <summary>
       /// Converts the instance to a delegate that takes an
       /// instance of a TFiltered and returns its associated
       /// TValue. Calling the returned delegate and passing it
-      /// an instance of a <typeparamref name="TCriteria"/>
+      /// an instance of a <typeparamref name="TKeySource"/>
       /// is equivalent to using the indexer.
       /// </summary>
       /// <param name="map"></param>
 
-      public static implicit operator Func<TFiltered, TValue>(DBObjectDataMap<TFiltered, TCriteria, TValue> map)
+      public static implicit operator Func<TKeySource, TValue>(DBObjectDataMap<TKeySource, TValueSource, TValue> map)
       {
          Assert.IsNotNull(map, nameof(map));
          return map.Accessor;
       }
    }
+
 
 }
 

@@ -8,12 +8,12 @@ namespace System.Linq.Extensions
 
    public static class CountMapExtensions
    {
-      public static IDictionary<T, int> MapCount<T>(this IEnumerable<T> source, IEqualityComparer<T> comparer = null)
+      public static IDictionary<T, int> CountAll<T>(this IEnumerable<T> source, IEqualityComparer<T> comparer = null)
       {
          return new CountMap<T>(source, comparer).ToDictionary();
       }
 
-      public static IDictionary<TKey, int> MapCount<T, TKey>(this IEnumerable<T> source, Func<T, TKey> selector, IEqualityComparer<TKey> comparer = null)
+      public static IDictionary<TKey, int> CountAllBy<T, TKey>(this IEnumerable<T> source, Func<T, TKey> selector, IEqualityComparer<TKey> comparer = null)
       {
          return new CountMap<TKey>(source.Select(selector), comparer).ToDictionary();
       }
