@@ -38,6 +38,8 @@ namespace Autodesk.AutoCAD.Runtime.Extensions
          if(ptr.ToInt64() < 1)
             throw new InvalidOperationException("Invalid wrapper");
          Interop.DetachUnmanagedObject(wrapper);
+         Interop.SetAutoDelete(wrapper, false);
+         wrapper.Dispose();
          Interop.DetachUnmanagedObject(replacement);
          Interop.AttachUnmanagedObject(replacement, ptr, autoDelete);
       }

@@ -463,18 +463,6 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             owner.CriteriaExpression = owner.CriteriaExpression.Or(operand);
          }
 
-         public void RevAnd(Expression<Func<TCriteria, bool>> operand)
-         {
-            Assert.IsNotNull(operand, nameof(operand));
-            owner.CriteriaExpression = operand.And(owner.CriteriaExpression);
-         }
-
-         public void RevOr(Expression<Func<TCriteria, bool>> operand)
-         {
-            Assert.IsNotNull(operand, nameof(operand));
-            owner.CriteriaExpression = operand.Or(owner.CriteriaExpression);
-         }
-
          public static implicit operator Expression<Func<TCriteria, bool>>(CriteriaProperty operand)
          {
             return operand?.owner?.CriteriaExpression;
