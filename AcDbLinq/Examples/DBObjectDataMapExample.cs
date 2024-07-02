@@ -11,7 +11,7 @@ using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Runtime;
 using AcRx = Autodesk.AutoCAD.Runtime;
 
-/// DBObjectFilterExample.cs  
+/// DBObjectDataMapExample.cs  
 /// 
 /// ActivistInvestor / Tony T.
 /// 
