@@ -1,4 +1,4 @@
-﻿/// DBObjectFilter.cs  
+﻿/// DBObjectFilterList.cs  
 /// 
 /// ActivistInvestor / Tony T.
 /// 

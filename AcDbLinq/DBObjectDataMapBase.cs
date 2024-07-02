@@ -1,4 +1,4 @@
-﻿/// DBObjectDataMap.cs  
+﻿/// DBObjectDataMapBase.cs  
 /// 
 /// ActivistInvestor / Tony T.
 /// 

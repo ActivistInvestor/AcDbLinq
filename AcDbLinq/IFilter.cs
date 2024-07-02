@@ -2,7 +2,7 @@
 
 using System;
 
-/// DBObjectDataMap.cs  
+/// IFilter.cs  
 /// 
 /// ActivistInvestor / Tony T.
 /// 
