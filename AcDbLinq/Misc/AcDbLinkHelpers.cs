@@ -41,10 +41,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       internal static void CheckTransaction(this Database db, Transaction trans)
       {
-         if(db == null || db.IsDisposed)
-            throw new ArgumentNullException(nameof(db));
-         if(trans == null || trans.IsDisposed)
-            throw new ArgumentNullException(nameof(trans));
+         Assert.IsNotNullOrDisposed(db, nameof(db));
+         Assert.IsNotNullOrDisposed(trans, nameof(trans));
          if(trans is OpenCloseTransaction)
             return;
          if(trans.GetType() != typeof(Transaction))
@@ -105,6 +103,14 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return Reformat(StripNamespaces(res), pad);
       }
 
+      public static string ToIdentity(this object obj)
+      {
+         if(obj == null)
+            return "(null)";
+         return StripNamespaces(obj.GetType().Name) +
+            $" (0x{obj.GetHashCode().ToString("x")})";
+      }
+
       static string Reformat(string s, string pad = "   ")
       {
          return s.Replace("AndAlso", $"\n{pad}   &&")
@@ -135,8 +141,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       public static object TryGetFirst(this IEnumerable enumerable)
       {
-         if(enumerable == null)
-            throw new ArgumentNullException(nameof(enumerable));
+         Assert.IsNotNull(enumerable, nameof(enumerable));
          var e = enumerable.GetEnumerator();
          try
          {

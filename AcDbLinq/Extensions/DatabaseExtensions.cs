@@ -10,10 +10,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices;
+using Autodesk.AutoCAD.DatabaseServices.Extensions;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Runtime.Diagnostics;
-using Autodesk.AutoCAD.DatabaseServices.Extensions;
 using AcRx = Autodesk.AutoCAD.Runtime;
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
@@ -842,10 +841,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          bool openLocked = false,
          bool directOnly = true)
       {
-         if(blockTableRecord == null)
-            throw new ArgumentNullException(nameof(blockTableRecord));
-         if(trans == null)
-            throw new ArgumentNullException(nameof(trans));
+         Assert.IsNotNullOrDisposed(blockTableRecord, nameof(blockTableRecord));
+         Assert.IsNotNullOrDisposed(trans, nameof(trans));
          if(blockTableRecord.IsLayout)
             throw new ArgumentException("Invalid BlockTableRecord");
          ObjectIdCollection ids = blockTableRecord.GetBlockReferenceIds(directOnly, true);
@@ -1057,8 +1054,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       public static Database TryGetDatabase(this IEnumerable<DBObject> objects,
          bool throwOnFailed = false)
       {
-         if(objects == null)
-            throw new ArgumentNullException(nameof(objects));
+         Assert.IsNotNull(objects, nameof(objects));
          Database db = objects.FirstOrDefault()?.Database;
          AcRx.ErrorStatus.NoDatabase.ThrowIf(throwOnFailed && db == null);
          return db;
@@ -1158,12 +1154,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          OpenMode mode = OpenMode.ForRead,
          Func<BlockTableRecord, bool> predicate = null)
       {
-         if(db == null || db.IsDisposed)
-            throw new ArgumentNullException(nameof(db));
-         if(trans == null || trans.IsDisposed)
-            throw new ArgumentNullException(nameof(trans));
-         if(string.IsNullOrWhiteSpace(pattern))
-            throw new ArgumentNullException(nameof(pattern));
+         Assert.IsNotNullOrDisposed(db, nameof(db));
+         Assert.IsNotNullOrDisposed(trans, nameof(trans));
+         Assert.IsNotNullOrWhiteSpace(pattern, nameof(pattern));
          predicate = predicate ?? IsUserBlock;
          return db.GetSymbolTableRecords<BlockTableRecord>(trans)
             .Where(btr => predicate(btr) && btr.Name.Matches(pattern))
@@ -1187,10 +1180,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          Transaction tr,
          string tag)
       {
-         if(btr == null)
-            throw new ArgumentNullException(nameof(btr));
-         if(tr == null)
-            throw new ArgumentNullException(nameof(tr));
+         Assert.IsNotNullOrDisposed(btr, nameof(btr));
+         Assert.IsNotNullOrDisposed(tr, nameof(tr));
          string s = tag.ToUpper();
          foreach(var blkref in btr.GetBlockReferences(tr))
          {
@@ -1208,10 +1199,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       public static IEnumerable<AttributeReference> GetAttributes(this BlockReference blkref, Transaction tr, OpenMode mode = OpenMode.ForRead)
       {
-         if(blkref == null)
-            throw new ArgumentNullException(nameof(blkref));
-         if(tr == null)
-            throw new ArgumentNullException(nameof(tr));
+         Assert.IsNotNullOrDisposed(blkref, nameof(blkref));
+         Assert.IsNotNullOrDisposed(tr, nameof(tr));
          var objects = blkref.AttributeCollection.Cast<object>();
          object first = blkref.AttributeCollection.TryGetFirst();
          if(first != null)

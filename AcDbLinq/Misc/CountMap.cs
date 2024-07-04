@@ -1,7 +1,14 @@
-﻿using Autodesk.AutoCAD.Runtime.Diagnostics;
+﻿/// CountMap.cs  
+/// 
+/// ActivistInvestor / Tony T.
+/// 
+/// Distributed under the terms of the MIT license.
+/// 
+/// Supporting APIs for the AcDbLinq library.
+
+using Autodesk.AutoCAD.Runtime.Diagnostics;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace System.Linq.Extensions
 {

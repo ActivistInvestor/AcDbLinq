@@ -6,16 +6,9 @@
 /// 
 /// Extension methods targeting the Entity class.
 
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Autodesk.AutoCAD.Geometry;
-using Autodesk.AutoCAD.Internal.Calculator;
-using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Runtime.Diagnostics;
-using AcRx = Autodesk.AutoCAD.Runtime;
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {

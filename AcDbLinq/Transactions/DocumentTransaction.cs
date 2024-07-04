@@ -4,15 +4,11 @@
 /// 
 /// Distributed under the terms of the MIT license.
 
-using System;
-using Autodesk.AutoCAD.ApplicationServices;
-using Autodesk.AutoCAD.Runtime;
-using Autodesk.AutoCAD.Runtime.Diagnostics;
 using Autodesk.AutoCAD.DatabaseServices.Extensions;
 using Autodesk.AutoCAD.EditorInput;
-using Autodesk.AutoCAD.Runtime.Extensions;
+using Autodesk.AutoCAD.Runtime;
+using Autodesk.AutoCAD.Runtime.Diagnostics;
 using AcRx = Autodesk.AutoCAD.Runtime;
-using AcAp = Autodesk.AutoCAD.ApplicationServices;
 
 namespace Autodesk.AutoCAD.ApplicationServices.Extensions
 {
@@ -59,28 +55,30 @@ namespace Autodesk.AutoCAD.ApplicationServices.Extensions
    /// The included DBObjectFilterExample.cs example shows
    /// how the Transaction-centric programming model enabled 
    /// by this class and it base class can be used to simplify 
-   /// and/or automate common operations performed by AutoCAD 
+   /// and automate routine operations performed by AutoCAD 
    /// extensions.
    /// 
    /// </summary>
-   
+
    public class DocumentTransaction : DatabaseTransaction
    {
       Document doc = null;
       DocumentLock docLock = null;
+      protected static readonly DocumentCollection Documents = Application.DocumentManager;
 
-      public DocumentTransaction(bool lockDocument = true) 
-         : this(ActiveDocument, lockDocument)
+      public DocumentTransaction(bool lockDocument = true, bool readOnly = false)
+         : this(ActiveDocument, lockDocument, readOnly)
       {
       }
 
-      public DocumentTransaction(Document doc, bool lockDocument = true) 
+      public DocumentTransaction(Document doc, bool lockDocument = true, bool readOnly = false)
          : base(doc?.Database, doc?.TransactionManager)
       {
          Assert.IsNotNullOrDisposed(doc, nameof(doc));
          this.doc = doc;
          if(lockDocument && Documents.IsApplicationContext)
             docLock = doc.LockDocument();
+         this.IsReadOnly = readOnly;
          doc.TransactionManager.EnableGraphicsFlush(true);
          doc.TransactionManager.StartTransaction().ReplaceWith(this);
       }

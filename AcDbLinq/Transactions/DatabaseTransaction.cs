@@ -9,11 +9,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Runtime.CompilerServices;
-using Autodesk.AutoCAD.Runtime.Diagnostics;
-using Autodesk.AutoCAD.Runtime.Extensions;
-using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.Runtime;
+using Autodesk.AutoCAD.Runtime.Diagnostics;
 using AcRx = Autodesk.AutoCAD.Runtime;
 
 /// Alternate pattern that allows the use of a custom 
@@ -54,7 +51,6 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       Database database;
       TransactionManager manager = null;   
       Database prevWorkingDb = null;
-      protected static readonly DocumentCollection Documents = Application.DocumentManager;
 
       /// <summary>
       /// Creates and starts a DatabaseTransaction. 

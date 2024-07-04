@@ -5,7 +5,6 @@
 /// Distributed under the terms of the MIT license.
 
 using System;
-using System.Windows;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Internal;            // Utils.WcMatchEx()
 using Autodesk.AutoCAD.Runtime.Diagnostics;
@@ -205,6 +204,50 @@ namespace Autodesk.AutoCAD.Runtime
             : !exactMatch ? id.ObjectClass.IsDerivedFrom(RXClass<T>.Value)
                : id.ObjectClass == RXClass<T>.Value;
       }
+
+      /// <summary>
+      /// Replaces one DisposableWrapper with another.
+      /// 
+      /// This API must be used with extreme care.
+      /// 
+      /// The replacement wrapper must be a class derived from 
+      /// the original wrapper, or be a class derived from the 
+      /// nearest concrete base type of the original wrapper.
+      /// 
+      /// After replacement, the <paramref name="replacement"/> argument
+      /// becomes the managed wrapper for the <paramref name="original"/>'s
+      /// UnmanagedObject, and all interaction with the native object must
+      /// be through the replacment. The <paramref name="original"/> argument
+      /// is no-longer usable or valid after this method returns.
+      /// </summary>
+      /// <param name="original">The DisposableWrapper that is to be replaced</param>
+      /// <param name="replacement">The DisposableWrapper that is to replace the 
+      /// <paramref name="original"/> argument</param>
+      /// <exception cref="InvalidOperationException"></exception>
+
+      public static void ReplaceWith(this DisposableWrapper original, DisposableWrapper replacement)
+      {
+         Assert.IsNotNullOrDisposed(original, nameof(original));
+         Assert.IsNotNullOrDisposed(replacement, nameof(replacement));
+         if(replacement.UnmanagedObject.ToInt64() > 0)
+            throw new InvalidOperationException("Invalid replacmement");
+         bool autoDelete = original.AutoDelete;
+         IntPtr ptr = original.UnmanagedObject;
+         if(ptr.ToInt64() < 1)
+            throw new InvalidOperationException("Invalid original wrapper");
+         Interop.DetachUnmanagedObject(original);
+         Interop.SetAutoDelete(original, false);
+         original.Dispose();
+         Interop.DetachUnmanagedObject(replacement);
+         Interop.AttachUnmanagedObject(replacement, ptr, autoDelete);
+      }
+
+      public static void TryDispose(this DisposableWrapper wrapper)
+      {
+         if(wrapper != null && !wrapper.IsDisposed)
+            wrapper.Dispose();
+      }
+
    }
 
    /// <summary>

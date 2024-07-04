@@ -6,16 +6,15 @@
 /// 
 /// Supporting APIs for the AcDbLinq library.
 
-using Autodesk.AutoCAD.ApplicationServices;
-using Autodesk.AutoCAD.DatabaseServices;
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.IO;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
+using Autodesk.AutoCAD.ApplicationServices;
+using Autodesk.AutoCAD.DatabaseServices;
+using AcRx = Autodesk.AutoCAD.Runtime;
 
 /// A class that implements a proxy for diagnostic 
 /// trace output, that can be used in-place of other
@@ -30,10 +29,29 @@ namespace Autodesk.AutoCAD.Runtime
 {
    public static class AcConsole
    {
+      /// <summary>
+      /// String.Format() and Editor.WriteMessage() can have problems with
+      /// the value of the ContentRTF property of Mtext objects, requiring
+      /// special handling.
+      /// </summary>
+
       public static void Write(string fmt, params object[] args)
       {
-         Application.DocumentManager.MdiActiveDocument?.Editor.WriteMessage(
-            $"{fmt}\n", args);
+         var ed = Application.DocumentManager.MdiActiveDocument?.Editor;
+         if(ed != null)
+         {
+            try
+            {
+               if(args.Length == 0)
+                  ed.WriteMessage(fmt + "\n");
+               else
+                  ed.WriteMessage(fmt + "\n", args);
+            }
+            catch(System.Exception ex)
+            {
+               ed.WriteMessage($"\n*** Error: {ex.Message}");
+            }
+         }
       }
 
       public static void WriteLine(string fmt, params object[] args)
@@ -77,7 +95,10 @@ namespace Autodesk.AutoCAD.Runtime
          {
             foreach(PropertyDescriptor prop in TypeDescriptor.GetProperties(target))
             {
-               sb.Append(string.Format($"  {prop.Name} = {GetValue(target, prop)}{delimiter}"));
+               object value = "(null)";
+               value = GetValue(target, prop);
+               string str = $"  {prop.Name} = " + value.ToString() + delimiter;
+               sb.Append(str);
             }
          }
          return sb.ToString();
@@ -93,7 +114,11 @@ namespace Autodesk.AutoCAD.Runtime
          }
          catch(System.Exception ex)
          {
-            return ex.Message;
+            if(ex.InnerException is AcRx.Exception inner)
+            {
+               return $"({inner.ErrorStatus})";
+            }
+            return "Error: " + ex.Message;
          }
          finally
          {
@@ -102,8 +127,12 @@ namespace Autodesk.AutoCAD.Runtime
          }
       }
 
-
-
+      public static void Dump(this DBObject obj, bool showTextScreen = true)
+      {
+         TraceProperties(obj);
+         if(showTextScreen)
+            Application.DisplayTextScreen = true;
+      }
    }
 
 }

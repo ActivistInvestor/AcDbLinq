@@ -23,6 +23,8 @@ namespace System.Linq.Expressions.Extensions
       {
          Assert.IsNotNull(expression, nameof(expression));
          this.expression = expression;
+         /// This field should never be accessed via any means
+         /// other than the Function property that returns it.
          this.function = null;
       }
 
@@ -40,6 +42,16 @@ namespace System.Linq.Expressions.Extensions
          }
       }
 
+      public TResult Invoke(TArg arg)
+      {
+         return Function(arg);
+      }
+
+      /// <summary>
+      /// After assignment, any value previously returned by
+      /// the above Function property is no longer valid, and
+      /// must be reacquired from that property.
+      /// </summary>
       public Expression<Func<TArg, TResult>> Expression 
       { 
          get => expression;

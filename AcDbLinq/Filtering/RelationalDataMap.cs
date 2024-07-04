@@ -32,14 +32,17 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// The type of the object from which cache keys are obtained:
       /// </summary>
       public override Type TKeySourceType => typeof(TKeySource);
+
       /// <summary>
       /// The type of the cache key:
       /// </summary>
       public override Type TKeyType => typeof(TKey);
+
       /// <summary>
       /// The type of the object from which cached values are obtained:
       /// </summary>
       public override Type TValueSourceType => typeof(TValueSource);
+
       /// <summary>
       /// The type of the cached values:
       /// </summary>
@@ -50,20 +53,20 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// type of generic arguments.
       /// </summary>
 
-      public override string Dump(string label = null, string indent = "")
+      public override string Dump(string label = null, string pad = "")
       {
-         StringBuilder sb = new StringBuilder(base.Dump(label, indent));
+         StringBuilder sb = new StringBuilder(base.Dump(label, pad));
          if(string.IsNullOrWhiteSpace(label))
-            label = this.GetType().Name;
+            label = this.ToIdentity();
          else
-            label += $" {this.GetType().Name}";
-         sb.AppendLine($"{indent}{label}: ");
-         sb.AppendLine($"{indent}KeySouce Type:      {TKeySourceType.Name}");
-         sb.AppendLine($"{indent}Key Type:           {TKeyType.Name}");
-         sb.AppendLine($"{indent}ValueSource Type:   {TValueSourceType.Name}");
-         sb.AppendLine($"{indent}Value Type:         {TValueType.Name}");
-         string s = Parent?.GetType().Name ?? "(none)";
-         sb.AppendLine($"{indent}Parent filter:      {s}");
+            label += $" {this.ToIdentity()}";
+         sb.AppendLine($"{pad}{label}: ");
+         sb.AppendLine($"{pad}KeySouce Type:      {TKeySourceType.Name}");
+         sb.AppendLine($"{pad}Key Type:           {TKeyType.Name}");
+         sb.AppendLine($"{pad}ValueSource Type:   {TValueSourceType.Name}");
+         sb.AppendLine($"{pad}Value Type:         {TValueType.Name}");
+         string s = Parent?.ToIdentity() ?? "(none)";
+         sb.AppendLine($"{pad}Parent filter:      {s}");
          return sb.ToString();
       }
    }

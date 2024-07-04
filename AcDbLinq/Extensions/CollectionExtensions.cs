@@ -18,7 +18,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Runtime.Diagnostics;
 
@@ -47,7 +46,12 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// The included UpgradeOpen<T>() method can be used 
    /// with a transaction to forcibly-upgrade an entity's 
    /// open mode to write, even if the entity resides on 
-   /// a locked layer.
+   /// a locked layer. The DBObject.UpgradeOpen() method
+   /// does't support upgrading an object's open state to 
+   /// write if the object is on a locked layer, and will 
+   /// throw an exception in that case. The UpgradeOpen()
+   /// extension method included herein circumvents that
+   /// problem using a Transaction.
    /// 
    /// Erased objects:
    /// 
@@ -82,13 +86,13 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// types to the generic IEnumerable<T> interface
       /// after it was introduced in .NET 2.0).
       /// 
-      /// To avoid unnecessary boxing, the core method
+      /// To avoid unnecessary unboxing, the core method
       /// that most of the public GetObjects() extension
       /// methods delegates to goes to great lengths to
       /// to coerce its IEnumerable input to a strongly-
       /// typed collection or enumerable, allowing it to 
-      /// avoid the expensive boxing that is inherent to 
-      /// the IEnumerable interface.
+      /// avoid the expensive unboxing that is inherent 
+      /// to the IEnumerable interface.
       /// 
       /// The following parameter documentation for this 
       /// core method applies to all public GetObjects() 
@@ -331,8 +335,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          Transaction trans,
          OpenMode mode = OpenMode.ForRead) where T : SymbolTableRecord
       {
-         if(source == null)
-            throw new ArgumentNullException(nameof(source));
+         Assert.IsNotNullOrDisposed(source, nameof(source));
          return GetObjectsCore<T>(source, trans, mode, false, true, false);
       }
 

@@ -1,7 +1,4 @@
-﻿
-using System;
-using System.Collections.Generic;
-using System.Linq.Expressions;
+﻿using System.Collections.Generic;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.ApplicationServices.Extensions;
 using Autodesk.AutoCAD.Colors;
@@ -18,7 +15,7 @@ using AcRx = Autodesk.AutoCAD.Runtime;
 /// Distributed under the terms of the MIT license.
 /// 
 /// Example code showing how to use/extend the
-/// DBObjectFilter and various other classes from 
+/// DBObjectDataMap and various other classes from 
 /// the AcDbLinq library.
 
 namespace AutoCAD.AcDbLinq.Examples
@@ -74,7 +71,7 @@ namespace AutoCAD.AcDbLinq.Examples
 
       public EffectiveColorMap(ObjectId viewportId = default(ObjectId))
 
-         : base(e => e.ColorIndex == 256 ? e.LayerId : ObjectId.Null,
+         : base(ent => ent.ColorIndex == 256 ? ent.LayerId : ObjectId.Null,
               layer => GetEffectiveLayerColor(layer, viewportId))
       {
          if(!viewportId.IsNull)
@@ -115,7 +112,7 @@ namespace AutoCAD.AcDbLinq.Examples
    }
 
    /// <summary>
-   /// This class acts as a wrapper EffectiveColorMap
+   /// This class is a wrapper for EffectiveColorMap
    /// that can be used to obtain the effective color 
    /// of an entity in the active viewport.
    /// 
@@ -145,18 +142,38 @@ namespace AutoCAD.AcDbLinq.Examples
          } 
       }
 
+      /// <summary>
+      /// The viewport that's used to compute the effective
+      /// color, is the viewport that's active at the point
+      /// when this indexer is referenced.
+      /// </summary>
+      /// <param name="entity"></param>
+      /// <returns></returns>
+
       public Color this[Entity entity] => GetEffectiveColor(entity);
 
-      public Color GetEffectiveColor(Entity entity)
+      /// <summary>
+      /// The viewport that's used to compute the effective
+      /// color, is the viewport whose ObjectId is provided,
+      /// or the viewport that's active at the point when this 
+      /// method is called without a viewport argument.
+      /// </summary>
+      /// <param name="entity"></param>
+      /// <param name="vportId"></param>
+      /// <returns></returns>
+
+      public Color GetEffectiveColor(Entity entity, ObjectId vportId = default(ObjectId))
       {
          if(entity.ColorIndex != 256)
             return entity.Color;
          Document doc = Application.DocumentManager.MdiActiveDocument;
          if(doc == null)
             return defaultMap[entity];
-         ObjectId vportId = doc.Editor.CurrentViewportObjectId;
+         if(vportId.IsNull)
+            vportId = doc.Editor.CurrentViewportObjectId;
          if(vportId.IsNull)
             return defaultMap[entity];
+         AcRx.ErrorStatus.WrongObjectType.Requires<Viewport>(vportId);
          EffectiveColorMap vportMap;
          if(!maps.TryGetValue(vportId, out vportMap))
             maps[vportId] = vportMap = new EffectiveColorMap(vportId);

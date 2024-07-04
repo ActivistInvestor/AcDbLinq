@@ -8,19 +8,10 @@
 /// DBObjects in Linq queries and other sceanrios.
 
 using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
-using System.Linq.Expressions.Extensions;
 using System.Linq.Expressions.Predicates;
-using System.Runtime.CompilerServices;
 using System.Text;
-using System.Windows.Input;
-using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Runtime.Diagnostics;
-
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {
@@ -149,12 +140,6 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       PredicateProperty predicateProperty;
       CriteriaProperty criteriaProperty;
 
-      DBObjectFilterList filters;
-
-      // The Type key is a TCriteria
-      //Dictionary<(Type, Expression<Func<TFiltered, ObjectId>>), DBObjectDataMap> filters
-      //   = new Dictionary<(Type, Expression<Func<TFiltered, ObjectId>>), DBObjectDataMap>();
-
       public DBObjectFilter(
          Expression<Func<TFiltered, ObjectId>> keySelector,
          Expression<Func<TCriteria, bool>> valueSelector)
@@ -162,7 +147,23 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          : base(keySelector, valueSelector.Compile())
       {
          this.criteriaExpression = valueSelector;
-         filters = new DBObjectFilterList(this);
+      }
+
+      protected DBObjectFilter<TFiltered, TNewCriteria> Add<TNewCriteria>(
+         DBObjectFilter<TFiltered, TCriteria> parent,
+         Logical operation,
+         Expression<Func<TFiltered, ObjectId>> keySelector,
+         Expression<Func<TNewCriteria, bool>> valueSelector) where TNewCriteria: DBObject 
+      {
+         Assert.IsNotNull(parent, nameof(parent));
+         Assert.IsNotNull(keySelector, nameof(keySelector));
+         Assert.IsNotNull(valueSelector, nameof(valueSelector));
+
+         var result = new DBObjectFilter<TFiltered, TNewCriteria>(keySelector, valueSelector);
+         result.Parent = parent;
+         parent.Filters.Add(result);
+         parent.Predicate.Add(operation, result);
+         return result;
       }
 
       /// <summary>
@@ -330,7 +331,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          Assert.IsNotNull(keySelector, nameof(keySelector));
          Assert.IsNotNull(predicate, nameof(predicate));
 
-         DataMap item = filters[typeof(TNewCriteria), keySelector];
+         DataMap item = Filters[typeof(TNewCriteria), keySelector];
          if(item != null)
          {
             var result = (DBObjectFilter<TFiltered, TNewCriteria>)item;
@@ -340,12 +341,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
          // No existing filter is compatible,
          // so a new filter instance is needed:
-         
-         var filter = new DBObjectFilter<TFiltered, TNewCriteria>(keySelector, predicate);
-         filter.Parent = this;
-         filters.Add(filter); 
-         Predicate.Add(operation, filter);
-         return filter;
+
+         return Add<TNewCriteria>(this, operation, keySelector, predicate);
       }
 
       /// <summary>
@@ -378,6 +375,36 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       {
          Assert.IsNotNull(filter, nameof(filter));
          return filter.CriteriaExpression;
+      }
+
+      /// <summary>
+      /// A diagnostic function that emits a dump of the current 
+      /// instance expressions and generic argument types:
+      /// </summary>
+      /// <param name="label"></param>
+      /// <returns></returns>
+
+      public override string Dump(string label = null, string pad = "")
+      {
+         StringBuilder sb = new StringBuilder(base.Dump(label, pad));
+         sb.AppendLine(Format($"{pad}Criteria selector:  ", KeySelectorExpression));
+         sb.AppendLine(Format($"{pad}Criteria predicate: ", criteriaExpression));
+         sb.AppendLine(Format($"{pad}Match predicate     ", GetValueExpression));
+         if(Filters.HasChildren)
+         {
+            sb.AppendLine($"{pad}Child filters: ");
+            int i = 0;
+            foreach(var child in Filters.Children)
+               sb.Append(child.Dump($"child[{i++}]:          ", pad + "   "));
+         }
+         return sb.ToString();
+      }
+
+      static string Format(string label, Expression expr)
+      {
+         int n = label.Length;
+         string s = new string(' ', n);
+         return label + expr.ToShortString(s);
       }
 
       public class PredicateProperty
@@ -473,36 +500,6 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          }
 
       } // CriteriaProperty
-
-      /// <summary>
-      /// A diagnostic function that emits a dump of the current 
-      /// instance expressions and generic argument types:
-      /// </summary>
-      /// <param name="label"></param>
-      /// <returns></returns>
-      
-      public override string Dump(string label = null, string pad = "")
-      {
-         StringBuilder sb = new StringBuilder(base.Dump(label, pad));
-         sb.AppendLine(Format($"{pad}Criteria key:       ", KeySelectorExpression));
-         sb.AppendLine(Format($"{pad}Criteria predicate: ", criteriaExpression));
-         sb.AppendLine(Format($"{pad}Match predicate     ", GetValueExpression));
-         if(filters.HasChildren) 
-         {
-            sb.AppendLine($"{pad}Child filters: ");
-            int i = 0;
-            foreach(var child in filters.Children)
-               sb.Append(child.Dump($"child[{i++}]:", pad + "   "));
-         }
-         return sb.ToString();
-      }
-
-      static string Format(string label, Expression expr)
-      {
-         int n = label.Length;
-         string s = new string(' ', n);
-         return label + expr.ToShortString(s);
-      }
 
    } // DBObjectFilter
 

@@ -4,10 +4,9 @@
 /// 
 /// Distributed under the terms of the MIT License
 
-using Autodesk.AutoCAD.Runtime;
-using Autodesk.AutoCAD.Runtime.Diagnostics;
 using System.Collections.Generic;
 using System.Linq.Expressions.Extensions;
+using Autodesk.AutoCAD.Runtime.Diagnostics;
 
 namespace System.Linq.Expressions.Predicates
 {

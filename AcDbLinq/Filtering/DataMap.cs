@@ -8,8 +8,6 @@
 using System;
 using System.Linq.Expressions;
 
-#pragma warning disable CS0618 // Type or member is obsolete
-
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {
    /// <summary>
@@ -25,7 +23,19 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       public DataMap Parent
       {
          get => parent;
-         protected internal set => parent = value;
+         protected set => parent = value;
+      }
+
+      DataMapCollection filters = null;
+
+      public DataMapCollection Filters 
+      { 
+         get 
+         {
+            if(filters == null)
+               filters = new DataMapCollection(this);
+            return filters;
+         } 
       }
 
       public abstract Type TKeySourceType { get; }
@@ -33,8 +43,21 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       public abstract Type TValueSourceType { get; }
       public abstract Type TValueType { get; }
 
+      /// <summary>
+      /// The expression used as a partial key that
+      /// identifies this instance in a graph of child 
+      /// DataMap objects.
+      /// </summary>
+
       public abstract Expression KeySelectorExpression { get; }
 
+      /// <summary>
+      /// If set to True, every DBObjectFilter will display
+      /// a dump of its properties on the AutoCAD console,
+      /// the first time the filter is used. This property
+      /// is intended to support diagnostic purposes.
+      /// </summary>
+      
       public static bool Trace { get; set; } = false;
 
       /// <summary>
@@ -51,10 +74,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       public abstract void Invalidate();
 
-
       protected void NotifyMapChanged(MapChangeType type, ObjectId id = default(ObjectId))
       {
-         mapChanged.Invoke(this, new MapChangedEventArgs(this, type, id));
+         mapChanged?.Invoke(this, new MapChangedEventArgs(this, type, id));
       }
 
       /// <summary>
