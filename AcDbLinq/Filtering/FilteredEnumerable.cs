@@ -159,17 +159,6 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <param name="predicate"></param>
       /// <returns></returns>
 
-      public static IFilteredEnumerable<T, TCriteria> Where<T, TCriteria>(
-            this IEnumerable<T> source,
-            Expression<Func<T, ObjectId>> keySelector,
-            Expression<Func<TCriteria, bool>> predicate)
-         where T : DBObject
-         where TCriteria : DBObject
-      {
-         Assert.IsNotNull(source, nameof(source));
-         return new FilteredEnumerable<T, TCriteria>(source, keySelector, predicate);
-      }
-
       public static IFilteredEnumerable<T, TCriteria> WhereBy<T, TCriteria>(
             this IEnumerable<T> source,
             Expression<Func<T, ObjectId>> criteriaKeySelector,

@@ -397,7 +397,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          StringBuilder sb = new StringBuilder(base.Dump(label, pad));
          sb.AppendLine(Format("Criteria selector:  ", KeySelectorExpression));
          sb.AppendLine(Format("Criteria predicate: ", criteriaExpression));
-         sb.AppendLine(Format("Match predicate     ", GetValueExpression));
+         sb.AppendLine(Format("Match predicate:    ", GetValueExpression));
          if(Filters.HasChildren)
          {
             sb.AppendLine($"{pad}Child filters: ");

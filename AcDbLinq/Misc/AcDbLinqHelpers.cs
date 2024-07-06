@@ -79,6 +79,11 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             || btr.IsDependent);
       }
 
+      public static Func<BlockTableRecord, bool> IsUserBlock(this IEnumerable<BlockTableRecord> blocks)
+      {
+         return IsUserBlock;
+      }
+
       /// <summary>
       /// Disposes all the elements in the source sequence,
       /// and the source if it is an IDisposable. Useful with

@@ -941,7 +941,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       public static IEnumerable<T> ExceptNested<T>(this IEnumerable<T> source)
          where T : Entity
       {
-         return source.Where<T, BlockTableRecord>(
+         return source.WhereBy<T, BlockTableRecord>(
             entity => entity.BlockId, 
             blockTableRecord => blockTableRecord.IsLayout);
       }

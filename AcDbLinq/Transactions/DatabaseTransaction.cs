@@ -238,7 +238,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       void CheckDisposed()
       {
          if(this.IsDisposed || !this.AutoDelete || this.database.IsDisposed)
-            throw new InvalidOperationException("Transaction or Database was disposed.");
+            throw new InvalidOperationException("Transaction or Database was ended or disposed.");
       }
 
       /// <summary>
@@ -270,7 +270,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// DatabaseExtensions class, is that all methods of this type
       /// replace the Database as the invocation target with the 
       /// instance of this type, and omit all Transaction arguments.
-
+      ///
       /// The Database and Transaction arguments required by the
       /// extension version of this method are implicit here:
       
@@ -283,7 +283,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       /// <summary>
-      /// Opens objects for read and filters them implicitly
+      /// Opens objects for read, and filters them implicitly
       /// using the provided filtering criteria. See the
       /// DBObjectFilter class and the Where<T, TCriteria>()
       /// extension method for details on the use of this
@@ -305,7 +305,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          Assert.IsNotNull(keySelector, nameof(keySelector));
          Assert.IsNotNull(predicate, nameof(predicate));
          return ThisDb.GetModelSpaceObjects<T>(this, OpenMode.ForRead, false, false)
-            .Where<T, TCriteria>(keySelector, predicate);
+            .WhereBy<T, TCriteria>(keySelector, predicate);
       }
 
       /// <summary>

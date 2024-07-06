@@ -175,11 +175,11 @@ namespace AutoCAD.AcDbLinq.Examples
       /// <summary>
       /// The following command does what the above command 
       /// does, but takes a different route, by using the
-      /// Where<T, TCriteria>() extension method to specify 
+      /// WhereBy<T, TCriteria>() extension method to specify 
       /// the filter parameters in a more straightforward 
       /// and simpler way.
       /// 
-      /// The Where<T, TCriteria> extension method automates 
+      /// The WhereBy<T, TCriteria> extension method automates 
       /// the creation and use of DBObjectFilter to filter a 
       /// sequence of entities.
       /// </summary>
@@ -190,8 +190,8 @@ namespace AutoCAD.AcDbLinq.Examples
          using(var tr = new DocumentTransaction())
          {
             var desks = tr.GetModelSpaceObjects<BlockReference>()
-               .Where<BlockReference, BlockTableRecord>(
-                  blockReference => blockReference.DynamicBlockTableRecord,
+               .WhereBy<BlockReference, BlockTableRecord>(
+                  blockref => blockref.DynamicBlockTableRecord,
                   blockTableRecord => blockTableRecord.Name.Matches("DESK*"));
 
             var ids = desks.Select(br => br.ObjectId).ToArray();
@@ -324,8 +324,8 @@ namespace AutoCAD.AcDbLinq.Examples
       /// is similar to the previous example, and uses the
       /// Add<T>() method to simplify the addition of the
       /// layer filter and its criteria. The Add<T>() method
-      /// is the recommended way to use multiple filters, as
-      /// it is much easier to implement and makes the code
+      /// is the recommended way to combine multiple filters, 
+      /// as it is easier to implement and also makes the code
       /// logic easier to understand.
       /// 
       /// Composability is what allows runtime conditions to 
@@ -393,7 +393,7 @@ namespace AutoCAD.AcDbLinq.Examples
             /// might otherwise use extension methods targeting 
             /// the Database class for. This works, because the
             /// DatabaseTransaction class encapsulates a Database, 
-            /// and DatabaseTransaction is itself a Transaction.
+            /// and a DatabaseTransaction is itself a Transaction.
             /// 
             /// Collect the block references satisifying the 
             /// filter criteria:
@@ -528,7 +528,11 @@ namespace AutoCAD.AcDbLinq.Examples
          ///
          /// Because this command runs in the application context,
          /// the DocumentTransaction will automatically lock and
-         /// unlock the document:
+         /// unlock the document.
+         /// 
+         /// While most of the above methods explicitly operate
+         /// on model space entities, this method will operate
+         /// on the entities of the current space.
 
          using(var tr = new DocumentTransaction())
          {
@@ -686,6 +690,11 @@ namespace AutoCAD.AcDbLinq.Examples
       /// DBVisualStyle named "Conceptual"; and an MLineStyle named
       /// "Standard". 
       /// 
+      /// The GetNamedObject() API serves as an example of how one 
+      /// can simplify the use of a complex and granular underlying 
+      /// API that was originally-designed to serve systems-level 
+      /// development, rather than high-level application development.
+      /// 
       /// Note that GetNamedObject() returns items from SymbolTables
       /// as well as built-in DBDictionaries.
       /// </summary>
@@ -710,8 +719,8 @@ namespace AutoCAD.AcDbLinq.Examples
       }
 
       /// <summary>
-      /// This example excercises the GetNamedObjects<T>() method, which
-      /// is the collection-level equivalent of GetNamedObjects(). 
+      /// This example excercises the GetNamedObjects<T>() method, 
+      /// the collection-level equivalent of GetNamedObject(). 
       /// 
       /// It enumerates entries in symbol tables as well as objects 
       /// in built-in DBDictionaries. Both GetNamedObject() and this
@@ -746,6 +755,15 @@ namespace AutoCAD.AcDbLinq.Examples
             foreach(Layout layout in tr.GetNamedObjects<Layout>())
             {
                Write($"  {layout.LayoutName}");
+            }
+
+            // Display the names of all user-defined blocks in the active document:
+
+            Write("\nBlocks:\n");
+            var blocks = tr.GetNamedObjects<BlockTableRecord>();
+            foreach(var btr in blocks.Where(blocks.IsUserBlock()))
+            {
+               Write($"  {btr.Name}");
             }
 
             tr.Commit();
