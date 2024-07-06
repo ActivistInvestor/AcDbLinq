@@ -150,12 +150,11 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          this.criteriaExpression = valueSelector;
       }
 
-      protected DBObjectFilter<TFiltered, TNewCriteria> AddChildFilter<TNewCriteria>(
+      protected DBObjectFilter<TFiltered, TNewCriteria> AddChild<TNewCriteria>(
          Logical operation,
          Expression<Func<TFiltered, ObjectId>> keySelector,
          Expression<Func<TNewCriteria, bool>> valueSelector) where TNewCriteria: DBObject 
       {
-         // Assert.IsNotNull(parent, nameof(parent));
          Assert.IsNotNull(keySelector, nameof(keySelector));
          Assert.IsNotNull(valueSelector, nameof(valueSelector));
 
@@ -342,7 +341,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          // No existing filter is compatible,
          // so a new filter instance is needed:
 
-         return AddChildFilter<TNewCriteria>(operation, keySelector, predicate);
+         return AddChild<TNewCriteria>(operation, keySelector, predicate);
       }
 
       /// <summary>
