@@ -13,6 +13,9 @@ using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Runtime.Diagnostics;
 using AcRx = Autodesk.AutoCAD.Runtime;
 
+/// Note: This file is intentionally kept free of any
+/// dependence on AcMgd/AcCoreMgd.
+
 /// Alternate pattern that allows the use of a custom 
 /// Transaction to serve as the invocation target for 
 /// Database extension methods provided by this library.
@@ -55,12 +58,15 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// <summary>
       /// Creates and starts a DatabaseTransaction. 
       /// </summary>
-      /// <param name="database">The Database in which to start the transaction</param>
-      /// <param name="asWorkingDatabase">A value indicating if the Database
-      /// should be made the current working database for the life of the 
-      /// transaction. This argument is not applicable to databases that are
-      /// open in the AutoCAD editor, or databases representing external
-      /// references.</param>
+      /// <param name="database">The Database in which to start the 
+      /// transaction. All Database-specific operations performed by 
+      /// an instance of this class will use this argument.</param>
+      /// <param name="asWorkingDatabase">A value indicating if the given
+      /// Database should be made the current working database for the life 
+      /// of the transaction. This argument is only applicable to databases 
+      /// that are created via the Database's new() constructor, and does
+      /// not apply to Databases that are open in the AutoCAD editor, or to
+      /// databases associated with a Document.</param>
 
       public DatabaseTransaction(Database database, bool asWorkingDatabase = true)
          : base(new IntPtr(-1), false)
@@ -158,7 +164,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          ObjectIdCollection result = new ObjectIdCollection();
          foreach(var entity in entities)
          {
-            result.Add(owner.AppendEntity(entity));
+            owner.AppendEntity(entity);
+            result.Add(entity.ObjectId);
             AddNewlyCreatedDBObject(entity, true);
          }
          return result;
@@ -179,7 +186,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          ObjectIdCollection result = new ObjectIdCollection();
          foreach(T entity in entities)
          {
-            result.Add(owner.AppendEntity(entity));
+            owner.AppendEntity(entity);
+            result.Add(entity.ObjectId);
             AddNewlyCreatedDBObject(entity, true);
          }
          return result;
@@ -327,27 +335,48 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return ThisDb.GetModelSpaceObjects<Entity>(this, mode, exact, openLocked);
       }
 
-      public IEnumerable<T> GetCurrentSpaceObjects<T>(
+      /// <summary>
+      /// Returns a sequence of entities from the current space 
+      /// (which could be model space, a paper space layout, or 
+      /// a block that is open in the block editor). 
+      /// 
+      /// The type of the generic argument is used to filter the 
+      /// types of entities that are produced. The non-generic 
+      /// overload that follows returns all entities in the current 
+      /// space.
+      /// </summary>
+
+      public IEnumerable<T> GetObjects<T>(
          OpenMode mode = OpenMode.ForRead,
          bool exact = false,
          bool openLocked = false) where T : Entity
       {
-         return ThisDb.GetCurrentSpaceObjects<T>(this, mode, exact, openLocked);
+         return ThisDb.GetObjects<T>(this, mode, exact, openLocked);
       }
 
-      public IEnumerable<T> GetCurrentSpaceObjects<T>(IFilter<T> filter) where T : Entity
+      public IEnumerable<T> GetObjects<T, TCriteria>(
+         Expression<Func<T, ObjectId>> keySelector,
+         Expression<Func<TCriteria, bool>> predicate)
+         where T : Entity
+         where TCriteria : DBObject
+      {
+         return ThisDb.GetObjects<T>(this)
+            .WhereBy<T, TCriteria>(keySelector, predicate);
+      }
+
+      public IEnumerable<T> GetObjects<T>(IFilter<T> filter) where T : Entity
       {
          Assert.IsNotNull(filter, nameof(filter));
-         return ThisDb.GetCurrentSpaceObjects<T>(this, OpenMode.ForRead, false, false)
+         return ThisDb.GetObjects<T>(this, OpenMode.ForRead, false, false)
             .Where(filter.MatchPredicate);
       }
 
 
-      public IEnumerable<Entity> GetCurrentSpaceEntities(
+      public IEnumerable<Entity> GetEntities(
          OpenMode mode = OpenMode.ForRead,
          bool openLocked = false)
       {
-         return ThisDb.GetCurrentSpaceObjects<Entity>(this, mode, false, openLocked);
+         return ThisDb.GetObjects<Entity>(this, mode, false, openLocked);
       }
 
       public IEnumerable<T> GetPaperSpaceObjects<T>(
@@ -608,28 +637,28 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return ThisDb.GetBlockReferences(pattern, this, mode, predicate);
       }
 
-      /// SymbolUtilityServices methods transposed to instance properties:
+      /// SymbolUtilityServices methods expressed as instance properties:
 
       public ObjectId ModelSpaceBlockId => 
-         SymbolUtilityServices.GetBlockModelSpaceId(database);
+         SymbolUtilityServices.GetBlockModelSpaceId(ThisDb);
       public ObjectId PaperSpaceBlockId => 
-         SymbolUtilityServices.GetBlockPaperSpaceId(database);
+         SymbolUtilityServices.GetBlockPaperSpaceId(ThisDb);
       public ObjectId LinetypeByBlockId => 
-         SymbolUtilityServices.GetLinetypeByBlockId(database);
+         SymbolUtilityServices.GetLinetypeByBlockId(ThisDb);
       public ObjectId LinetypeByLayerId => 
-         SymbolUtilityServices.GetLinetypeByLayerId(database);
+         SymbolUtilityServices.GetLinetypeByLayerId(ThisDb);
       public ObjectId LinetypeContinuousId => 
-         SymbolUtilityServices.GetLinetypeContinuousId(database);
+         SymbolUtilityServices.GetLinetypeContinuousId(ThisDb);
       public ObjectId RegAppAcadId => 
-         SymbolUtilityServices.GetRegAppAcadId(database);
+         SymbolUtilityServices.GetRegAppAcadId(ThisDb);
       public ObjectId TextStyleStandardId => 
-         SymbolUtilityServices.GetTextStyleStandardId(database);
+         SymbolUtilityServices.GetTextStyleStandardId(ThisDb);
       public ObjectId LayerDefpointsId => 
-         SymbolUtilityServices.GetLayerDefpointsId(database);
+         SymbolUtilityServices.GetLayerDefpointsId(ThisDb);
       public ObjectId LayerZeroId => 
-         SymbolUtilityServices.GetLayerZeroId(database);
+         SymbolUtilityServices.GetLayerZeroId(ThisDb);
       public bool IsCompatibilityMode => 
-         SymbolUtilityServices.IsCompatibilityMode(database);
+         SymbolUtilityServices.IsCompatibilityMode(ThisDb);
       
    }
 

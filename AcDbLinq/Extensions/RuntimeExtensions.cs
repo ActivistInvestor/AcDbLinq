@@ -237,7 +237,7 @@ namespace Autodesk.AutoCAD.Runtime
             throw new InvalidOperationException("Invalid original wrapper");
          Interop.DetachUnmanagedObject(original);
          Interop.SetAutoDelete(original, false);
-         original.Dispose();
+         GC.SuppressFinalize(original);
          Interop.DetachUnmanagedObject(replacement);
          Interop.AttachUnmanagedObject(replacement, ptr, autoDelete);
       }

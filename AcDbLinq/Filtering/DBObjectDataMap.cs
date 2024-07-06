@@ -205,6 +205,28 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       
       public override Expression KeySelectorExpression => keySelectorExpression;
 
+      /// <summary>
+      /// Assigning a value to this expression requires that the
+      /// current value be included in the new expression (typically
+      /// combined using a logical and/or operation). 
+      /// 
+      /// Without including a call to the initial value of this 
+      /// expression in a modifed version, there'll be a failure.
+      /// This requirement may not make sense at this level, but 
+      /// does at the DBObjectFilter level, where TValue is a bool.
+      /// 
+      /// Example (when TValue is bool):
+      ///   
+      ///   filter.GetValueExpression = filter.GetValueExpression.And(newExpression);
+      ///    
+      /// The above line combines the existing expression and another 
+      /// expression in a logical 'and' operation, ensuring the initial 
+      /// value of this property is invoked.
+      /// 
+      /// DBObjectFilter performs this operation internally, but does not
+      /// allow the value of this property to be assigned from the outside.
+      ///   
+      /// </summary>
       protected Expression<Func<TKeySource, TValue>> GetValueExpression
       {
          get => getValueExpression; 

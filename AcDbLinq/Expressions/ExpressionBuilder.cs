@@ -20,7 +20,7 @@ namespace System.Linq.Expressions.Predicates
    /// 
    ///   https://www.albahari.com/nutshell/predicatebuilder.aspx
    ///   
-   /// But, takes a somewhat different approach, mainly
+   /// But, takes a radically-different approach, mainly
    /// by making everything extension methods. As a result, 
    /// there is no need to reference ExpressionBuilder or
    /// any other custom type. 
@@ -54,24 +54,32 @@ namespace System.Linq.Expressions.Predicates
       public static Expression<Func<T, bool>> Not<T>(this Expression<Func<T, bool>> expression)
       {
          Assert.IsNotNull(expression, nameof(expression));
-         var negated = Expression.Not(expression.Body);
-         return Expression.Lambda<Func<T, bool>>(negated, expression.Parameters);
+         return Expression.Lambda<Func<T, bool>>(
+            Expression.Not(expression.Body), expression.Parameters);
       }
 
       public static Expression<Func<T, bool>> And<T>(
          this Expression<Func<T, bool>> left,
-         Expression<Func<T, bool>> right)
+         Expression<Func<T, bool>> right, 
+         bool reverse = false)
       {
          Assert.IsNotNull(left, nameof(left));
-         return left.Join(right, Expression.AndAlso);
+         if(reverse)
+            return right.Join(left, Expression.AndAlso);
+         else
+            return left.Join(right, Expression.AndAlso);
       }
 
       public static Expression<Func<T, bool>> Or<T>(
          this Expression<Func<T, bool>> left,
-         Expression<Func<T, bool>> right)
+         Expression<Func<T, bool>> right,
+         bool reverse = false)
       {
          Assert.IsNotNull(left, nameof(left));
-         return left.Join(right, Expression.OrElse);
+         if(reverse)
+            return right.Join(left, Expression.OrElse);
+         else
+            return left.Join(right, Expression.OrElse);
       }
 
       public static Expression<Func<T, bool>> Any<T>(IEnumerable<Expression<Func<T, bool>>> args)

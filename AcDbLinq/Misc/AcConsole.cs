@@ -123,7 +123,7 @@ namespace Autodesk.AutoCAD.Runtime
          finally
          {
             if(obj != null && Marshal.IsComObject(obj))
-               Marshal.FinalReleaseComObject(obj);
+               Marshal.ReleaseComObject(obj);
          }
       }
 

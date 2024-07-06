@@ -8,11 +8,12 @@ using System;
 /// 
 /// Distributed under the terms of the MIT license.
 /// 
+
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {
-   public interface IFilter<TKeySource> where TKeySource : DBObject
+   public interface IFilter<T> where T : DBObject
    {
-      bool IsMatch(TKeySource source);
-      Func<TKeySource, bool> MatchPredicate { get;}
+      bool IsMatch(T source);
+      Func<T, bool> MatchPredicate { get;}
    }
 }

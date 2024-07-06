@@ -35,9 +35,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       IEnumerable<T> source = new T[0];
 
       public FilteredEnumerable(IEnumerable<T> source,
-            Expression<Func<T, ObjectId>> keySelector,
+            Expression<Func<T, ObjectId>> criteriaKeySelector,
             Expression<Func<TCriteria, bool>> predicate) 
-         : base(keySelector, predicate)
+         : base(criteriaKeySelector, predicate)
       {
          this.source = source ?? new T[0];
       }
@@ -168,6 +168,17 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       {
          Assert.IsNotNull(source, nameof(source));
          return new FilteredEnumerable<T, TCriteria>(source, keySelector, predicate);
+      }
+
+      public static IFilteredEnumerable<T, TCriteria> WhereBy<T, TCriteria>(
+            this IEnumerable<T> source,
+            Expression<Func<T, ObjectId>> criteriaKeySelector,
+            Expression<Func<TCriteria, bool>> predicate)
+         where T : DBObject
+         where TCriteria : DBObject
+      {
+         Assert.IsNotNull(source, nameof(source));
+         return new FilteredEnumerable<T, TCriteria>(source, criteriaKeySelector, predicate);
       }
    }
 

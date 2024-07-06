@@ -10,6 +10,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using Autodesk.AutoCAD.DatabaseServices.Extensions;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Runtime.Diagnostics;
@@ -105,7 +106,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// all other parameters.
       /// <exception cref="ArgumentNullException"></exception>
 
-      public static IEnumerable<T> GetCurrentSpaceObjects<T>(this Database db,
+      public static IEnumerable<T> GetObjects<T>(this Database db,
          Transaction trans,
          OpenMode mode = OpenMode.ForRead,
          bool exact = false,
@@ -116,19 +117,30 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             .GetObjects<T>(trans, mode, exact, openLocked);
       }
 
+      public static IFilteredEnumerable<T, TCriteria> GetObjects<T, TCriteria>(
+            this Database db,
+            Transaction trans,
+            Expression<Func<T, ObjectId>> keySelector,
+            Expression<Func<TCriteria, bool>> predicate)
+         where T : Entity
+         where TCriteria : DBObject
+      {
+         return GetObjects<T>(db, trans).
+            WhereBy<T, TCriteria>(keySelector, predicate); 
+      }
+
       /// <summary>
-      /// Non-generic version of GetCurrentSpaceObjects() that
+      /// Non-generic version of GetObjects<T>() that
       /// enumerates all entities in the current space.
       /// </summary>
 
-      public static IEnumerable<Entity> GetCurrentSpaceEntities(this Database db,
+      public static IEnumerable<Entity> GetEntities(this Database db,
          Transaction tr,
          OpenMode mode = OpenMode.ForRead,
          bool openLocked = false)
       {
-         return GetCurrentSpaceObjects<Entity>(db, tr, mode, false, openLocked);
+         return GetObjects<Entity>(db, tr, mode, false, openLocked);
       }
-
 
       /// <summary>
       /// Returns a sequence containing entities from 
@@ -366,11 +378,11 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// 
       /// To get all LayerTableRecords from the LayerTable:
       /// 
-      ///   myDatabase.GetObjects<LayerTableRecord>(trans);
+      ///   myDatabase.GetNamedObjects<LayerTableRecord>(trans);
       ///   
       /// To get all Groups from the Group dictionary:
       /// 
-      ///   myDatabase.GetObjects<Group>(trans);
+      ///   myDatabase.GetNamedObjects<Group>(trans);
       /// 
       /// </summary>
       /// <typeparam name="T"></typeparam>
@@ -386,8 +398,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          if(typeof(SymbolTableRecord).IsAssignableFrom(typeof(T)))
          {
             var func = SymbolTableAccessors.GetAccessor(typeof(T));
-            SymbolTable table = func(db).GetObject<SymbolTable>(trans);
-            return table.GetObjectsOfType<T>(trans, true, mode);
+            Assert.IsNotNull(func, nameof(func));
+            return func(db).GetObject<SymbolTable>(trans)
+               .GetObjectsOfType<T>(trans, true, mode);
          }
          return GetDictionaryObjects<T>(db, trans, mode);
       }

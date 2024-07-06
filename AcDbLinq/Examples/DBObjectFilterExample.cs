@@ -239,7 +239,19 @@ namespace AutoCAD.AcDbLinq.Examples
 
       /// <summary>
       /// A slightly modified example that erases the
-      /// resulting objects:
+      /// resulting objects; operates on the current 
+      /// space rather than model space; and uses an 
+      /// overload of GetObjects<>() that performs the
+      /// filtering internally.
+      /// 
+      /// Instead of creating an instance of DBObjectFilter
+      /// to perform the filtering, this code gives the
+      /// filtering parameters to GetObjects() and it does 
+      /// the same filtering internally.
+      /// 
+      /// The overload of GetObjects() requires two generic 
+      /// arguments that correspond to the same two generic 
+      /// arguments used with DBObjectFilter.
       /// </summary>
 
       [CommandMethod("ERASEDESKS", CommandFlags.Redraw)]
@@ -247,8 +259,9 @@ namespace AutoCAD.AcDbLinq.Examples
       {
          using(var doc = new DocumentTransaction())
          {
-            var filter = new BlockFilter(btr => btr.Name.Matches("DESK*"));
-            var desks = doc.GetModelSpaceObjects<BlockReference>().Where(filter);
+            var desks = doc.GetObjects<BlockReference, BlockTableRecord>(
+               blkref => blkref.DynamicBlockTableRecord,
+               btr => btr.Name.Matches("DESK*"));
 
             int cnt = 0;
             foreach(BlockReference blockref in desks.UpgradeOpen())
@@ -521,7 +534,7 @@ namespace AutoCAD.AcDbLinq.Examples
          {
             /// Define the filtered sequence of BlockReferences:
             
-            var desks = tr.GetCurrentSpaceObjects<BlockReference>(filter);
+            var desks = tr.GetObjects<BlockReference>(filter);
 
             /// Explode and erase the block references enumerated by the
             /// above filtered sequence. They consist of all uniformly-
@@ -575,7 +588,7 @@ namespace AutoCAD.AcDbLinq.Examples
          layerFilter.Criteria.Add(layer => !layer.IsLocked);
          using(var tr = new DocumentTransaction())
          {
-            var desks = tr.GetCurrentSpaceObjects<BlockReference>(filter);
+            var desks = tr.GetObjects<BlockReference>(filter);
             DBObjectCollection fragments = new DBObjectCollection();
             using(fragments.EnsureDispose())
             {
@@ -680,21 +693,19 @@ namespace AutoCAD.AcDbLinq.Examples
       [CommandMethod("GETNAMEDOBJECTEXAMPLE")]
       public static void GetNamedObjectExample()
       {
-         using(var tr = new DocumentTransaction())
+         using(var tr = new DocumentTransaction(true, true))
          {
             var group1 = tr.GetNamedObject<Group>("Group1");
-            tr.Editor.WriteMessage($"\nGroup: {group1.ToString()}");
+            group1.Dump();
 
             var layer = tr.GetNamedObject<LayerTableRecord>("PHONES");
-            tr.Editor.WriteMessage($"\nLayer: {layer.ToString()}");
+            layer.Dump();
 
             var visualStyle = tr.GetNamedObject<DBVisualStyle>("Conceptual");
-            tr.Editor.WriteMessage($"\nVisual style: {visualStyle}");
+            visualStyle.Dump();
 
             var mlStyle = tr.GetNamedObject<MlineStyle>("Standard");
-            tr.Editor.WriteMessage($"\nMLineStyle: {mlStyle}");
-
-            tr.Commit();
+            mlStyle.Dump();
          }
       }
 

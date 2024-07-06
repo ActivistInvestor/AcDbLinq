@@ -136,6 +136,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       where TCriteria : DBObject
 
    {
+      // Assigned to base.valueSelector delegate:
       Expression<Func<TCriteria, bool>> criteriaExpression;
       PredicateProperty predicateProperty;
       CriteriaProperty criteriaProperty;
@@ -308,8 +309,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// filter is added to the instance and is logically 
       /// combined with the instance.
       /// 
-      /// Note: this method can return both new and existing
-      /// instances.
+      /// This method can return both new and existing
+      /// filter instances.
       /// </summary>
       /// <typeparam name="TNewCriteria">The type of the
       /// predicate's argument</typeparam>
@@ -386,10 +387,17 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       public override string Dump(string label = null, string pad = "")
       {
+         string Format(string label, Expression expr)
+         {
+            int n = label.Length;
+            string s = new string(' ', n);
+            return pad + label + expr.ToShortString(s);
+         }
+
          StringBuilder sb = new StringBuilder(base.Dump(label, pad));
-         sb.AppendLine(Format($"{pad}Criteria selector:  ", KeySelectorExpression));
-         sb.AppendLine(Format($"{pad}Criteria predicate: ", criteriaExpression));
-         sb.AppendLine(Format($"{pad}Match predicate     ", GetValueExpression));
+         sb.AppendLine(Format("Criteria selector:  ", KeySelectorExpression));
+         sb.AppendLine(Format("Criteria predicate: ", criteriaExpression));
+         sb.AppendLine(Format("Match predicate     ", GetValueExpression));
          if(Filters.HasChildren)
          {
             sb.AppendLine($"{pad}Child filters: ");
@@ -398,13 +406,6 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
                sb.Append(child.Dump($"child[{i++}]:          ", pad + "   "));
          }
          return sb.ToString();
-      }
-
-      static string Format(string label, Expression expr)
-      {
-         int n = label.Length;
-         string s = new string(' ', n);
-         return label + expr.ToShortString(s);
       }
 
       public class PredicateProperty

@@ -14,6 +14,7 @@ using System.Linq.Expressions;
 using System.Text;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Runtime.Diagnostics;
+using static Autodesk.AutoCAD.DatabaseServices.Extensions.AcDbLinqHelpers;
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {
@@ -96,65 +97,6 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
                continue;
             obj?.Dispose();
          }
-      }
-
-      public static string ToShortString(this Expression expr, string pad = "   ")
-      {
-         string res = expr?.ToString() ?? "(null)";
-         return Reformat(StripNamespaces(res), pad);
-      }
-
-      public static string ToIdentity(this object obj)
-      {
-         if(obj == null)
-            return "(null)";
-         return StripNamespaces(obj.GetType().CSharpName()) +
-            $" (0x{obj.GetHashCode().ToString("x")})";
-      }
-
-      public static string CSharpName(this Type type)
-      {
-         return csharpNames[type];
-      }
-
-      static Cache<Type, string> csharpNames = new Cache<Type, string>(getCSharpName);
-
-      static string getCSharpName(Type type)
-      { 
-         var sb = new StringBuilder();
-         var name = type.Name;
-         if(!type.IsGenericType)
-            return name;
-         sb.Append(name.Substring(0, name.IndexOf('`')));
-         sb.Append("<");
-         sb.Append(string.Join(", ", 
-            type.GetGenericArguments()
-              .Select(CSharpName)));
-         sb.Append(">");
-         return sb.ToString();
-      }
-
-      static string Reformat(string s, string pad = "   ")
-      {
-         return s.Replace("AndAlso", $"\n{pad}   &&")
-            .Replace("OrElse", $"\n{pad}   ||");
-      }
-
-      static string StripNamespaces(string input)
-      {
-         return input.Replace("Autodesk.AutoCAD.", "")
-            .Replace("DatabaseServices.", "")
-            .Replace("ApplicationServices.", "")
-            .Replace("EditorInput.", "")
-            .Replace("AutoCAD.AcDbLinq.", "")
-            .Replace("Extensions.", "")
-            .Replace("Expressions.", "")
-            .Replace("Examples.", "");
-      }
-
-      public static string ToShortString(this Type type)
-      {
-         return CSharpName(type);
       }
 
       /// <summary>
@@ -271,6 +213,73 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          }
       }
 
+
+   }
+
+   public static class DiagnosticSupport
+   {
+      /// <summary>
+      /// Supporting code for diagnostic tracing of DBObjectFilters
+      /// </summary>
+
+      public static string ToShortString(this Expression expr, string pad = "   ")
+      {
+         string res = expr?.ToString() ?? "(null)";
+         return Reformat(StripNamespaces(res), pad);
+      }
+
+      public static string ToIdentity(this object obj)
+      {
+         if(obj == null)
+            return "(null)";
+         return StripNamespaces(obj.GetType().CSharpName()) +
+            $" (0x{obj.GetHashCode().ToString("x")})";
+      }
+
+      public static string CSharpName(this Type type)
+      {
+         return csharpNames[type];
+      }
+
+      static Cache<Type, string> csharpNames = new Cache<Type, string>(getCSharpName);
+
+      static string getCSharpName(Type type)
+      {
+         var sb = new StringBuilder();
+         var name = type.Name;
+         if(!type.IsGenericType)
+            return name;
+         sb.Append(name.Substring(0, name.IndexOf('`')));
+         sb.Append("<");
+         sb.Append(string.Join(", ",
+            type.GetGenericArguments()
+              .Select(CSharpName)));
+         sb.Append(">");
+         return sb.ToString();
+      }
+
+      static string Reformat(string s, string pad = "   ")
+      {
+         return s.Replace("AndAlso", $"\n{pad}   &&")
+            .Replace("OrElse", $"\n{pad}   ||");
+      }
+
+      static string StripNamespaces(string input)
+      {
+         return input.Replace("Autodesk.AutoCAD.", "")
+            .Replace("DatabaseServices.", "")
+            .Replace("ApplicationServices.", "")
+            .Replace("EditorInput.", "")
+            .Replace("AutoCAD.AcDbLinq.", "")
+            .Replace("Extensions.", "")
+            .Replace("Expressions.", "")
+            .Replace("Examples.", "");
+      }
+
+      public static string ToShortString(this Type type)
+      {
+         return CSharpName(type);
+      }
 
    }
 
