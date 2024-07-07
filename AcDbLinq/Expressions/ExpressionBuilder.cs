@@ -83,6 +83,18 @@ namespace System.Linq.Expressions.Predicates
             return left.Join(right, Expression.OrElse);
       }
 
+      public static Expression<Func<T, bool>> Xor<T>(
+         this Expression<Func<T, bool>> left,
+         Expression<Func<T, bool>> right,
+         bool reverse = false)
+      {
+         Assert.IsNotNull(left, nameof(left));
+         if(reverse)
+            return right.Join(left, Expression.ExclusiveOr);
+         else
+            return left.Join(right, Expression.ExclusiveOr);
+      }
+
       public static Expression<Func<T, bool>> Any<T>(IEnumerable<Expression<Func<T, bool>>> args)
       {
          Assert.IsNotNull(args, nameof(args));
@@ -159,6 +171,40 @@ namespace System.Linq.Expressions.Predicates
          return OrAny(target, args.ToArray());
       }
 
+      /// <summary>
+      /// An alternate means of performing one of the above
+      /// operations, using the Logical enum type to specify 
+      /// the type of logical operation and evaluation order.
+      /// </summary>
+      /// <typeparam name="T"></typeparam>
+      /// <param name="left"></param>
+      /// <param name="operation"></param>
+      /// <param name="right"></param>
+      /// <returns></returns>
+      /// <exception cref="NotSupportedException"></exception>
+      public static Expression<Func<T, bool>> Add<T>(this Expression<Func<T, bool>> left, Logical operation, Expression<Func<T, bool>> right)
+      {
+         Assert.IsNotNull(left, nameof(left));
+         Assert.IsNotNull(right, nameof(right));
+         switch(operation)
+         {
+            case Logical.And:
+               return left.And(right);
+            case Logical.Or:
+               return left.Or(right);
+            case Logical.ReverseAnd:
+               return right.And(left);
+            case Logical.ReverseOr:
+               return right.Or(left);
+            case Logical.Xor:
+               return left.Xor(right);
+            case Logical.ReverseXor:
+               return right.Xor(left);
+            default:
+               throw new NotSupportedException(operation.ToString());
+         }
+      }
+
       public static bool IsDefault<T>(this Expression<Func<T, bool>> expression)
       {
          return DefaultExpression<T>.IsDefault(expression);
@@ -187,6 +233,26 @@ namespace System.Linq.Expressions.Predicates
          return array[index];
       }
 
+      /// <summary>
+      /// Compares two expressions for functional 
+      /// equivalence, disregarding parameter names.
+      /// 
+      /// For example:
+      /// 
+      ///   Expression<int,bool> left = x => x > 10;   // left and right use differing
+      ///   Expression<int,bool> right = y => y > 10;  // parameter names
+      ///   Expression<int,bool> other = x => x > 20;
+      ///   
+      ///   left.IsEqualTo(right) -> true
+      ///   left.IsEqualTo(other) -> false
+      ///   right.IsEqualTo(other) -> false
+      /// 
+      /// </summary>
+      /// <param name="thisExpr"></param>
+      /// <param name="other"></param>
+      /// <returns>a value indicating if the two expressions
+      /// are functionally-equivalent</returns>
+
       public static bool IsEqualTo(this Expression thisExpr, Expression other)
       {
          return ExpressionEqualityComparer.Instance.Equals(thisExpr, other);
@@ -214,36 +280,13 @@ namespace System.Linq.Expressions.Predicates
          }
       }
 
-      public static Expression<Func<T, bool>> Add<T>(this Expression<Func<T, bool>> left, Logical operation, Expression<Func<T, bool>> right)
-      {
-         Assert.IsNotNull(left, nameof(left));
-         Assert.IsNotNull(right, nameof(right));
-         switch(operation)
-         {
-            case Logical.And:
-               left = left.And(right);
-               break;
-            case Logical.Or:
-               left = left.Or(right);
-               break;
-            case Logical.ReverseAnd:
-               left = right.And(left);
-               break;
-            case Logical.ReverseOr:
-               left = right.Or(left);
-               break;
-            default:
-               throw new NotSupportedException(operation.ToString());
-         }
-         return left;
-      }
-
-
 
       /// <summary>
       /// The concept of a 'default' expression allows them to act
       /// as invocation targets for extension methods that combine
       /// multiple expressions into compound expressions. 
+      /// 
+      /// PrdicateExpression<int>.Empty
       /// 
       /// When a default expression is logically combined with another 
       /// expression, the result is always the other expression.
@@ -265,19 +308,9 @@ namespace System.Linq.Expressions.Predicates
          public static bool IsDefault(Expression<Func<T, bool>> expr)
          {
             Assert.IsNotNull(expr, nameof(expr));
-            if(expr == True || expr == False)
-               return true;
-            string s = expr.ToString().Trim();
-            return s.EndsWith(strTrue) || s.EndsWith(strFalse);
+            return expr.IsEqualTo(False) || expr.IsEqualTo(True);
          }
-
-         const string strTrue = "=> True";
-         const string strFalse = "=> False";
       }
-   }
-
-   public static class ExpressionJoin
-   {
    }
 
    //class TestCases

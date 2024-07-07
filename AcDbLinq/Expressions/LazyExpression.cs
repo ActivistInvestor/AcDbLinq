@@ -5,6 +5,7 @@
 /// Distributed under terms of the MIT License
 
 using Autodesk.AutoCAD.Runtime.Diagnostics;
+using System.Linq.Expressions.Predicates;
 
 namespace System.Linq.Expressions.Extensions
 {
@@ -58,7 +59,7 @@ namespace System.Linq.Expressions.Extensions
          private set
          {
             Assert.IsNotNull(value, nameof(value));
-            if(!object.ReferenceEquals(expression, value))
+            if(!this.expression.IsEqualTo(value))
             {
                expression = value;
                function = null;
@@ -86,7 +87,7 @@ namespace System.Linq.Expressions.Extensions
 
       public override string ToString()
       {
-         return expression.ToString();
+         return expression?.ToString() ?? base.ToString();
       }
 
    }

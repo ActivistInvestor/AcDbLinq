@@ -247,7 +247,7 @@ namespace System.Linq.Expressions.Predicates
       public static implicit operator Expression<Func<T, bool>>(PredicateExpression<T> expr)
       {
          Assert.IsNotNull(expr, nameof(expr));
-         return expr.expression;
+         return expr.Expression;
       }
 
       public static implicit operator Func<T, bool>(PredicateExpression<T> expr)
@@ -263,7 +263,7 @@ namespace System.Linq.Expressions.Predicates
 
       public override string ToString()
       {
-         return expression.ToString();
+         return expression?.ToString() ?? base.ToString();
       }
 
    }

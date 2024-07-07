@@ -22,8 +22,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
    /// <typeparam name="T"></typeparam>
    /// <typeparam name="TCriteria"></typeparam>
 
-   public class FilteredEnumerable<T, TCriteria>
-         : DBObjectFilter<T, TCriteria>, IFilteredEnumerable<T, TCriteria>
+   public class FilteredEnumerable<T, TCriteria> 
+         : DBObjectFilter<T, TCriteria>, 
+         IFilteredEnumerable<T, TCriteria>
       where T : DBObject
       where TCriteria : DBObject
    {
@@ -148,9 +149,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// but which uses a DBObjectFilter internally to do
       /// relational filtering of the input sequence.
       /// 
-      /// Example: Using the familar unlocked layer
-      /// use case, reduce a sequence of entities to
-      /// the subset that are not on locked layers:
+      /// Example: Using the familar unlocked layer use case, 
+      /// reduce a sequence of entities to the subset that are 
+      /// not on locked layers:
       /// <code>
       /// 
       ///   IEnumerable<Entity> source = // assign to a sequence of entity
