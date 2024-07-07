@@ -13,21 +13,6 @@ using Autodesk.AutoCAD.Runtime.Diagnostics;
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {
-   public interface IFilteredEnumerable<T, TCriteria> : IEnumerable<T>, IFilter<T>
-      where T : DBObject
-      where TCriteria : DBObject
-   {
-      ICompoundExpression<T> Predicate { get; }
-      ICompoundExpression<TCriteria> Criteria { get; }
-
-      void Add<TNewCriteria>(Logical operation,
-         Expression<Func<T, ObjectId>> keySelector,
-         Expression<Func<TNewCriteria, bool>> predicate) where TNewCriteria : DBObject;
-
-      void Add<TNewCriteria>(
-         Expression<Func<T, ObjectId>> keySelector,
-         Expression<Func<TNewCriteria, bool>> predicate) where TNewCriteria : DBObject;
-   }
 
    /// <summary>
    /// A specialization of DBObjectFilter that encapsulates the
@@ -80,25 +65,6 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       {
          return this.GetEnumerator();
       }
-   }
-
-   //public interface ICompoundFilter<T> : ICompoundExpression<T>
-   //{
-   //   void Add<TNewCriteria>(Logical operation,
-   //      Expression<Func<T, ObjectId>> keySelector,
-   //      Expression<Func<TNewCriteria, bool>> predicate) where TNewCriteria : DBObject;
-
-   //   void Add<TNewCriteria>(
-   //      Expression<Func<T, ObjectId>> keySelector,
-   //      Expression<Func<TNewCriteria, bool>> predicate) where TNewCriteria : DBObject;
-   //}
-
-   public interface ICompoundExpression<T>
-   {
-      void Add(Logical operation, Expression<Func<T, bool>> predicate);
-      void Add(Expression<Func<T, bool>> predicate);
-      //void Add<TNewCriteria>(Expression<Func<T, ObjectId>> keySelector,
-      //   Expression<Func<TNewCriteria, bool>> predicate) where TNewCriteria : DBObject;
    }
 
    public static class FilteredEnumerableExtensions
