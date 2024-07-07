@@ -43,6 +43,16 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          }
       }
 
+      public bool ReferenceContains(DataMap map)
+      {
+         foreach(var item in base.Items)
+         {
+            if(object.ReferenceEquals(item, map)) 
+               return true;
+         }
+         return false;
+      }
+
       public IEnumerable<DataMap> Children => this.Where(item => item != owner);
 
       public int ChildCount => base.Count - 1;

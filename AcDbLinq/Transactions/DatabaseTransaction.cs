@@ -171,6 +171,49 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return result;
       }
 
+      BlockTableRecord appendOwner = null;
+
+      /// <summary>
+      /// Appends the given entity to the given BlockTableRecord.
+      /// </summary>
+      /// <param name="owner"></param>
+      /// <param name="entity"></param>
+      /// <returns></returns>
+
+      public ObjectId Append(BlockTableRecord owner, Entity entity)
+      {
+         Assert.IsNotNullOrDisposed(owner, nameof(owner));
+         return Append(entity, owner);
+      }
+
+      /// <summary>
+      /// Appends the entity to the given BlockTableRecord or
+      /// the current space BlockTableRecord if the specified
+      /// owner is not supplied or is null.
+      /// </summary>
+      /// <param name="entity"></param>
+      /// <param name="owner"></param>
+      /// <returns></returns>
+      
+      public ObjectId Append(Entity entity, BlockTableRecord owner = null)
+      {
+         Assert.IsNotNullOrDisposed(entity, nameof(entity));
+         if(owner != null)
+         {
+            Assert.IsNotNullOrDisposed(owner, nameof(owner));
+            AcRx.ErrorStatus.NotOpenForWrite.ThrowIf(!owner.IsWriteEnabled);
+         }
+         else
+         {
+            if(appendOwner == null || appendOwner.ObjectId != CurrentSpaceId)
+               appendOwner = GetObject<BlockTableRecord>(CurrentSpaceId, OpenMode.ForWrite);
+            owner = appendOwner;
+         }
+         owner.AppendEntity(entity);
+         AddNewlyCreatedDBObject(entity, true);
+         return entity.ObjectId;
+      }
+
       /// <summary>
       /// Overload of Append() that takes the owner
       /// BlockTableRecord as an argument. The owner
@@ -191,6 +234,28 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             AddNewlyCreatedDBObject(entity, true);
          }
          return result;
+      }
+
+      /// <summary>
+      /// This method can be used to upgrade the open mode of
+      /// objects to OpenMode.ForWrite, with support for upgrading
+      /// entities on locked layers (the DBObject.UpgradeOpen() 
+      /// method doesn't support upgrading objects on locked layers).
+      /// </summary>
+      /// <typeparam name="T"></typeparam>
+      /// <param name="source"></param>
+      /// <param name="upgradeOnLockedLayers"></param>
+      /// <returns></returns>
+      
+      public IEnumerable<T> UpgradeOpen<T>(IEnumerable<T> source, bool upgradeOnLockedLayers = true) where T: DBObject
+      {
+         Assert.IsNotNull(source, nameof(source));
+         foreach(T entity in source)
+         {
+            if(!entity.IsWriteEnabled)
+               GetObject(entity.ObjectId, OpenMode.ForWrite, false, upgradeOnLockedLayers);
+            yield return entity;
+         }
       }
 
       /// <summary>
@@ -639,6 +704,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
       /// SymbolUtilityServices methods expressed as instance properties:
 
+      public ObjectId CurrentSpaceId => ThisDb.CurrentSpaceId;
       public ObjectId ModelSpaceBlockId => 
          SymbolUtilityServices.GetBlockModelSpaceId(ThisDb);
       public ObjectId PaperSpaceBlockId => 

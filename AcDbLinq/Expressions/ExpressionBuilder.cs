@@ -6,6 +6,7 @@
 
 using System.Collections.Generic;
 using System.Linq.Expressions.Extensions;
+using Autodesk.AutoCAD.DatabaseServices.Extensions;
 using Autodesk.AutoCAD.Runtime.Diagnostics;
 
 namespace System.Linq.Expressions.Predicates
@@ -213,6 +214,32 @@ namespace System.Linq.Expressions.Predicates
          }
       }
 
+      public static Expression<Func<T, bool>> Add<T>(this Expression<Func<T, bool>> left, Logical operation, Expression<Func<T, bool>> right)
+      {
+         Assert.IsNotNull(left, nameof(left));
+         Assert.IsNotNull(right, nameof(right));
+         switch(operation)
+         {
+            case Logical.And:
+               left = left.And(right);
+               break;
+            case Logical.Or:
+               left = left.Or(right);
+               break;
+            case Logical.ReverseAnd:
+               left = right.And(left);
+               break;
+            case Logical.ReverseOr:
+               left = right.Or(left);
+               break;
+            default:
+               throw new NotSupportedException(operation.ToString());
+         }
+         return left;
+      }
+
+
+
       /// <summary>
       /// The concept of a 'default' expression allows them to act
       /// as invocation targets for extension methods that combine
@@ -247,6 +274,10 @@ namespace System.Linq.Expressions.Predicates
          const string strTrue = "=> True";
          const string strFalse = "=> False";
       }
+   }
+
+   public static class ExpressionJoin
+   {
    }
 
    //class TestCases

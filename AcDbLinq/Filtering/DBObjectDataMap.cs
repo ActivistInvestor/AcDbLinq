@@ -236,6 +236,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             if(getValueExpression != value)
             {
                CheckInitialized();
+               if(value.CanReduce)
+                  value.ReduceAndCheck();
                getValueExpression = value;
                getValue = getValueExpression.Compile();
             }

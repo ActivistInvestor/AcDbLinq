@@ -165,10 +165,22 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return result;
       }
 
+      protected DBObjectFilter<TFiltered, TNewCriteria> AddChild<TNewCriteria>(
+         Logical operation,
+         DBObjectFilter<TFiltered, TNewCriteria> child) where TNewCriteria : DBObject
+      {
+         Assert.IsNotNull(child, nameof(child));
+         if(Filters.ReferenceContains(child))
+            throw new ArgumentException("Item already added");
+         child.Parent = this;
+         Filters.Add(child);
+         Predicate.Add(operation, child);
+         return child;
+      }
       /// <summary>
       /// The predicate that's applied to each TCriteria
       /// </summary>
-      
+
       Expression<Func<TCriteria, bool>> CriteriaExpression
       {
          get
@@ -181,6 +193,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             if(value != criteriaExpression)
             {
                CheckInitialized();
+               if(value.CanReduce)
+                  value.ReduceAndCheck();
                criteriaExpression = value;
                valueSelector = criteriaExpression.Compile();
             }
@@ -192,7 +206,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return this[candidate];
       }
 
-      public Func<TFiltered, bool> MatchPredicate => Accessor;
+      Func<TFiltered, bool> IFilter<TFiltered>.MatchPredicate => Accessor;
 
       public PredicateProperty Predicate => 
          predicateProperty ?? (predicateProperty = new PredicateProperty(this));
@@ -204,7 +218,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// Combines this filter with another DBObjectFilter in 
       /// a logical 'and' or 'or' operation. 
       /// 
-      /// Can also be used to logically-combine the filter with 
+      /// Can also be used to logically-combine a filter with 
       /// an arbitrary Expression<Func<TFiltered, bool>>.
       /// 
       /// This method modifies the instance to perform a
@@ -224,13 +238,6 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          GetValueExpression = GetValueExpression.And(operand);
          return this;
       }
-
-      // Can't overload because calls become ambiguous
-      // between this and Add(Expression<Func<TCriteria, bool>>)
-      //public void Add(Expression<Func<TFiltered, bool>> operand)
-      //{
-      //   And(operand);
-      //}
 
       public DBObjectFilter<TFiltered, TCriteria> Or(
          Expression<Func<TFiltered, bool>> operand)
@@ -268,25 +275,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       void Add(Logical operation, Expression<Func<TCriteria, bool>> predicate) 
       {
          Assert.IsNotNull(predicate, nameof(predicate));
-         switch(operation)
-         {
-            case Logical.And:
-               CriteriaExpression = CriteriaExpression.And(predicate);
-               break;
-            case Logical.Or:
-               CriteriaExpression = CriteriaExpression.Or(predicate);
-               break;
-            case Logical.ReverseAnd:
-               CriteriaExpression = predicate.And(CriteriaExpression);
-               break;
-            case Logical.ReverseOr:
-               CriteriaExpression = predicate.Or(CriteriaExpression);
-               break;
-            default:
-               throw new NotSupportedException(operation.ToString());
-         }
+         CriteriaExpression = CriteriaExpression.Add(operation, predicate);
       }
-
 
       /// <summary>
       /// Adds a child DBObjectFilter whose predicate 
@@ -406,7 +396,7 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          return sb.ToString();
       }
 
-      public class PredicateProperty
+      public class PredicateProperty : ICompoundExpression<TFiltered>
       {
          DBObjectFilter<TFiltered, TCriteria> owner;
 
@@ -435,33 +425,31 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          public void Add(Logical operation, Expression<Func<TFiltered, bool>> predicate)
          {
             Assert.IsNotNull(predicate, nameof(predicate));
-            switch(operation)
-            {
-               case Logical.And:
-                  owner.GetValueExpression = owner.GetValueExpression.And(predicate);
-                  break;
-               case Logical.Or:
-                  owner.GetValueExpression = owner.GetValueExpression.Or(predicate);
-                  break;
-               case Logical.ReverseAnd:
-                  owner.GetValueExpression = predicate.And(owner.GetValueExpression);
-                  break;
-               case Logical.ReverseOr:
-                  owner.GetValueExpression = predicate.Or(owner.GetValueExpression);
-                  break;
-               default:
-                  throw new NotSupportedException(operation.ToString());
-            }
+            owner.GetValueExpression = owner.GetValueExpression.Add(operation, predicate);
          }
+
+         //public void Add<TNewCriteria>(Logical operation,
+         //   Expression<Func<TFiltered, ObjectId>> keySelector,
+         //   Expression<Func<TNewCriteria, bool>> predicate) where TNewCriteria : DBObject
+         //{
+         //   owner.Add<TNewCriteria>(operation, keySelector, predicate);
+         //}
+
+         //public void Add<TNewCriteria>(
+         //   Expression<Func<TFiltered, ObjectId>> keySelector,
+         //   Expression<Func<TNewCriteria, bool>> predicate) where TNewCriteria : DBObject
+         //{
+         //   owner.Add<TNewCriteria>(Logical.And, keySelector, predicate);
+         //}
 
          public static implicit operator Func<TFiltered, bool>(PredicateProperty prop)
          {
             Assert.IsNotNull(prop, nameof(prop));
             return prop.owner.Accessor;
          }
-      }
+      } // class PredicateProperty
 
-      public class CriteriaProperty
+      public class CriteriaProperty : ICompoundExpression<TCriteria>
       {
          DBObjectFilter<TFiltered, TCriteria> owner;
 
@@ -474,6 +462,23 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
          {
             owner.Add(Logical.And, predicate);
          }
+
+         /// <summary>
+         /// Adds a condition to the test applied to TCriteria
+         /// instances. The Logical argument specifies which
+         /// logical operation the predicate is to be combined 
+         /// using. The default Logical operation is Logcal.And
+         /// 
+         /// The Criteria predicate from other filters can be
+         /// added along with arbitrary or 'ad-hoc' predicates.
+         /// To add the criteria predicate from another filter,
+         /// it must have the same TCriteria generic argument.
+         /// The filter itself can be passed to this method to
+         /// logically-combine its criteria predicate with the 
+         /// criteria predicate of the instance.
+         /// </summary>
+         /// <param name="predicate">A predicate expression that
+         /// is applied to TCriteria instances.</param>
 
          public void Add(Logical operation, Expression<Func<TCriteria, bool>> predicate)
          {
@@ -498,9 +503,9 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             return operand?.owner?.CriteriaExpression;
          }
 
-      } // CriteriaProperty
+      } // class CriteriaProperty
 
-   } // DBObjectFilter
+   } // class DBObjectFilter
 
 } // namespace
 

@@ -9,6 +9,7 @@
 /// the AcDbLinq library.
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Linq.Extensions;
@@ -596,16 +597,88 @@ namespace AutoCAD.AcDbLinq.Examples
             DBObjectCollection fragments = new DBObjectCollection();
             using(fragments.EnsureDispose())
             {
-               int count = desks.UpgradeOpen().Explode(fragments, true);
+               int exploded = desks.UpgradeOpen().Explode(fragments, true).Count();
                if(fragments.Count > 0)
                {
                   tr.Append(fragments);
-                  Write($"Found and exploded {count} DESK blocks");
+                  Write($"Found and exploded {exploded} DESK blocks");
                }
             }
             tr.Commit();
          }
       }
+
+      /// <summary>
+      /// Functionally indentical to the above method, but
+      /// uses the WhereBy() extension methods, and the
+      /// IFilteredEnumerable interface.
+      /// </summary>
+
+      [CommandMethod("EXPLODEDESKS3", CommandFlags.Session)]
+      public static void ExplodeDesks3()
+      {
+         //var filter = new BlockFilter(btr => btr.Name.Matches("DESK*"));
+         //filter.Predicate.Add(br => br.ScaleFactors.IsProportional());
+         //var layerFilter = filter.Add<LayerTableRecord>(
+         //   blkref => blkref.LayerId,
+         //   layer => layer.Name.Matches("FURNITURE*"));
+         //layerFilter.Criteria.Add(layer => !layer.IsLocked);
+
+         using(var tr = new DocumentTransaction())
+         {
+            var desks = tr.GetObjects<BlockReference>()
+               .WhereBy<BlockReference, BlockTableRecord>(
+                  blkref => blkref.DynamicBlockTableRecord,
+                  btr => btr.Name.Matches("DESK*"));
+
+            desks.Add<LayerTableRecord>(e => e.LayerId,
+               layer => layer.Name.Matches("FURNITURE*"));
+
+            // This adds the predicate to the same child filter
+            // that was added by the above call to Add():
+            
+            desks.Add<LayerTableRecord>(e => e.LayerId,
+               layer => !layer.IsLocked);
+
+            // This adds the predicate to the parent filter:
+
+            desks.Predicate.Add(blkref => blkref.ScaleFactors.IsProportional());
+
+            DBObjectCollection fragments = new DBObjectCollection();
+            using(fragments.EnsureDispose())
+            {
+               int exploded = desks.UpgradeOpen().Explode(fragments, true).Count();
+               if(fragments.Count > 0)
+               {
+                  tr.Append(fragments);
+                  Write($"Found and exploded {exploded} DESK blocks");
+               }
+            }
+            tr.Commit();
+         }
+      }
+
+      /// <summary>
+      /// Attempts to explode every object in the current space:
+      /// </summary>
+      static void ExplodeAll()
+      {
+         using(var tr = new DocumentTransaction())
+         {
+            var btr = tr.GetObject<BlockTableRecord>(tr.CurrentSpaceId, OpenMode.ForWrite);
+            IEnumerable<Entity> entities = tr.GetObjects<Entity>();
+            DBObjectCollection results = new DBObjectCollection();
+            using(results.EnsureDispose())
+            {
+               foreach(int first in entities.Explode(results))
+               {
+                  for(int i = first; i < results.Count; i++)
+                     tr.Append((Entity)results[i]);
+               }
+            }
+         }
+      }
+
 
       /// <summary>
       /// Further demonstrating the transaction-centric programming

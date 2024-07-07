@@ -8,23 +8,35 @@
 
 using System.Collections.Generic;
 using System.Linq;
+using Autodesk.AutoCAD.ApplicationServices.Extensions;
 using Autodesk.AutoCAD.Runtime.Diagnostics;
+using AcRx = Autodesk.AutoCAD.Runtime;
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {
 
    /// <summary>
    /// This class is merely an example showing how to write 
-   /// 'Linq-compatible' extension methods to perform common 
-   /// operations on multiple entities that are enumerated by 
-   /// IEnumerable<Entity>.
+   /// 'Linq-friendly' extension methods to perform common 
+   /// operations on multiple entities that are enumerated 
+   /// by IEnumerable<Entity>.
    /// </summary>
 
    public static partial class EntityExtensions
    {
       /// <summary>
       /// Erases all entities in the sequence. 
-      /// They should be open for write. 
+      /// They must be open for write. 
+      /// 
+      /// Use the UpgradeOpen() extension method
+      /// to to ensure that entities are open for
+      /// write, such as:
+      /// <code>
+      /// 
+      ///    myEntities.UpgradeOpen().Erase();
+      ///    
+      /// </code>
+      /// 
       /// </summary>
 
       public static int Erase(this IEnumerable<DBObject> objects, bool erase = true)
@@ -43,8 +55,13 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// Explodes each block reference in the input sequence
       /// to its owner space, and optionally collects and returns 
       /// the ObjectIds of all objects created by the operation.
+      /// 
+      /// Notes: eNotApplicable or eCannotExplodeEntity is not
+      /// handled by this code. Callers should ensure that all
+      /// input block references can be exploded (e.g., they're
+      /// uniformly-scaled, etc.).
       /// </summary>
-      /// <param name="entities">A sequence of BlockReferences</param>
+      /// <param name="blockrefs">A sequence of BlockReferences</param>
       /// <param name="erase">A value indicating if the source
       /// objects are to be erased.</param>
       /// <param name="collect">A value indicating if newly-
@@ -54,26 +71,26 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// of all objects created by the operation</returns>
 
       public static ObjectIdCollection ExplodeToOwnerSpace(
-         this IEnumerable<BlockReference> entities, 
+         this IEnumerable<BlockReference> blockrefs, 
          out int count,
          bool erase = false,
          bool collect = false)
       {
-         Assert.IsNotNull(entities, nameof(entities));
+         Assert.IsNotNull(blockrefs, nameof(blockrefs));
          Database db = null;
          ObjectIdCollection ids = new ObjectIdCollection();
          count = 0;
-         if(entities.Any())
+         if(blockrefs.Any())
          {
             if(collect)
             {
-               db = entities.TryGetDatabase(true);
+               db = blockrefs.TryGetDatabase(true);
                db.ObjectAppended += objectAppended;
             }
             try
             {
                int cnt = 0;
-               foreach(BlockReference br in entities)
+               foreach(BlockReference br in blockrefs)
                {
                   br.ExplodeToOwnerSpace();
                   ++cnt;
@@ -94,7 +111,8 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 
          void objectAppended(object sender, ObjectEventArgs e)
          {
-            ids.Add(e.DBObject.ObjectId);
+            if(e.DBObject is Entity ent)
+               ids.Add(ent.ObjectId);
          }
       }
 
@@ -134,6 +152,22 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// Explodes all entities in the sequence and adds
       /// the resulting objects to the DBObjectCollection
       /// argument.
+      /// 
+      /// This method uses deferred execution, and must
+      /// have its result enumerated in order to perform
+      /// the operation on the input sequence.
+      /// 
+      /// The resulting sequence of integers represents
+      /// the indices of the first entity added to the
+      /// DBObjectCollection argument for each entity
+      /// that was exploded. The difference between each
+      /// element and the one following it is the number
+      /// of entities produced by exploding each entity
+      /// in the input sequence.
+      /// 
+      /// This method uses deferred execution, and the
+      /// results must be enumerated to perform the
+      /// operation.
       /// </summary>
       /// <param name="entities">The input sequence of
       /// entities to be exploded.</param>
@@ -144,21 +178,25 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// entities to be exploded should be erased. The
       /// entities are erased only if they are currently 
       /// open for write.</param>
+      /// <returns>A sequence of integers, where each 
+      /// element represents the index of the first 
+      /// entity in the DBObjectCollection argument
+      /// that was produced by exploding an entity from
+      /// the input sequence.</returns>
 
-      public static int Explode(this IEnumerable<Entity> entities, 
-         DBObjectCollection output, bool erase = true)
+      public static IEnumerable<int> Explode(this IEnumerable<Entity> entities, 
+         DBObjectCollection output, bool erase = false)
       {
          Assert.IsNotNull(entities, nameof(entities));
          Assert.IsNotNull(output, nameof(output));
-         int count = 0;
          foreach(var entity in entities)
          {
+            int index = output.Count;
             entity.Explode(output);
-            ++count;
             if(erase && entity.IsWriteEnabled)
                entity.Erase(true);
+            yield return index;
          }
-         return count;
       }
 
       /// <summary>
@@ -174,37 +212,58 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       /// sequence are added.</param>
       /// <param name="erase">A value indicating if the
       /// entities to be exploded should be erased. The
-      /// entities are exploded only if they are currently 
-      /// open for write.</param>
-      /// <returns>The number of entities that were not
-      /// exploded.</returns>
+      /// entities are erased only if they are currently 
+      /// open for write and were successfully exploded.</param>
+      /// <returns>A sequence of integers, where each 
+      /// element represents the number of objects that
+      /// were created by exploding each entity in the 
+      /// source sequence</returns>
 
-      public static int TryExplode(this IEnumerable<Entity> entities,
+      /// TODO: To be revised.
+      /// 
+      /// The revised version will enumerate the DBObjectCollection 
+      /// index of the first entity produced by exploding each input 
+      /// entity:
+      /// 
+      /// The functional spec requires that the index of the first
+      /// entity produced by exploding an input entity in the ouput
+      /// DBObjectCollection be identified, allowing the caller to
+      /// correlate each input entity with the set of entities that
+      /// were prodoced by exploding it.
+      
+      public static List<int> TryExplode(this IEnumerable<Entity> entities,
          DBObjectCollection output, bool erase = true)
       {
          Assert.IsNotNull(entities, nameof(entities));
          Assert.IsNotNull(output, nameof(output));
-         int cnt = 0;
+         List<int> list = new List<int>();
          foreach(var entity in entities)
          {
             try
             {
+               int start = output.Count;
                entity.Explode(output);
+               if(output.Count > start)
+               {
+                  list.Add(output.Count - start);
+                  if(erase && entity.IsWriteEnabled)
+                     entity.Erase(true);
+               }
             }
-            catch(Autodesk.AutoCAD.Runtime.Exception)
+            catch(Autodesk.AutoCAD.Runtime.Exception ex)
             {
-               ++cnt;
+               if(ex.ErrorStatus != AcRx.ErrorStatus.NotApplicable)
+                  throw ex;
+               list.Add(0);
                continue;
             }
-            if(erase && entity.IsWriteEnabled)
-               entity.Erase(true);
          }
-         return cnt;
+         return list;
       }
 
 
       /// <summary>
-      /// Get the combined geometric extents of a sequence 
+      /// Get the geometric extents of a sequence 
       /// of entities:
       /// </summary>
       /// <param name="entities"></param>

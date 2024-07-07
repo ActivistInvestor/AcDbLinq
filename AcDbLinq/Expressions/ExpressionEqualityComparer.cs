@@ -13,22 +13,24 @@
 /// in hashcode generation. 
 /// 
 /// This is required, because two expressions that differ 
-/// only in the names of their parameters, but are otherwise 
-/// functionally-equivalent, compare as being equal by the
-/// ExpressionEqualityComparer, yet they generate different 
-/// hashcodes.
+/// only by the names of their parameters but are otherwise 
+/// functionally-equivalent, will compare as equal by the
+/// ExpressionEqualityComparer's Equals() method (which is
+/// the correct and intended/desired behavior), yet they 
+/// generate different hashcodes.
 /// 
 /// If two objects compare as equal, they must both produce
-/// the same hashcode which wasn't happening here, because
+/// the same hashcode, which wasn't happening here because
 /// ExpressionEqualityComparer was using parameter names as
 /// ingredients in hashcode generation. 
 /// 
 /// The modified code avoids using parameter names in hashcode
 /// generation, and as a result, any two expressions that 
 /// compare as equal should always produce the same hashcode, 
-/// regardless of what parameter names each expression uses.
+/// regardless of if the expressions use different parameter 
+/// names.
 /// 
-/// Other changes were required to eliminate the dependence
+/// Other changes were made only to eliminate any dependence
 /// on the rest of the codebase (namely, exception messages).
 /// 
 /// /// </summary>

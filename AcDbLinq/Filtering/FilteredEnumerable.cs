@@ -13,10 +13,20 @@ using Autodesk.AutoCAD.Runtime.Diagnostics;
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {
-   public interface IFilteredEnumerable<T, TCriteria> : IEnumerable<T>
-      where T: DBObject
+   public interface IFilteredEnumerable<T, TCriteria> : IEnumerable<T>, IFilter<T>
+      where T : DBObject
       where TCriteria : DBObject
    {
+      ICompoundExpression<T> Predicate { get; }
+      ICompoundExpression<TCriteria> Criteria { get; }
+
+      void Add<TNewCriteria>(Logical operation,
+         Expression<Func<T, ObjectId>> keySelector,
+         Expression<Func<TNewCriteria, bool>> predicate) where TNewCriteria : DBObject;
+
+      void Add<TNewCriteria>(
+         Expression<Func<T, ObjectId>> keySelector,
+         Expression<Func<TNewCriteria, bool>> predicate) where TNewCriteria : DBObject;
    }
 
    /// <summary>
@@ -39,13 +49,26 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
             Expression<Func<TCriteria, bool>> predicate) 
          : base(criteriaKeySelector, predicate)
       {
-         this.source = source ?? new T[0];
+         Assert.IsNotNull(source, nameof(source));
+         this.source = source;
       }
 
-      public IEnumerable<T> DataSource
+      ICompoundExpression<T> IFilteredEnumerable<T, TCriteria>.Predicate => this.Predicate;
+      ICompoundExpression<TCriteria> IFilteredEnumerable<T, TCriteria>.Criteria => this.Criteria;
+
+      void IFilteredEnumerable<T, TCriteria>.Add<TNewCriteria>(
+         Logical operation,
+         Expression<Func<T, ObjectId>> keySelector,
+         Expression<Func<TNewCriteria, bool>> predicate) 
       {
-         get { return source; }
-         set { source = value ?? new T[0]; }
+         base.Add<TNewCriteria>(operation, keySelector, predicate);
+      }
+
+      void IFilteredEnumerable<T, TCriteria>.Add<TNewCriteria>(
+         Expression<Func<T, ObjectId>> keySelector,
+         Expression<Func<TNewCriteria, bool>> predicate) 
+      {
+         base.Add<TNewCriteria>(Logical.And, keySelector, predicate);
       }
 
       public IEnumerator<T> GetEnumerator()
@@ -57,6 +80,25 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       {
          return this.GetEnumerator();
       }
+   }
+
+   //public interface ICompoundFilter<T> : ICompoundExpression<T>
+   //{
+   //   void Add<TNewCriteria>(Logical operation,
+   //      Expression<Func<T, ObjectId>> keySelector,
+   //      Expression<Func<TNewCriteria, bool>> predicate) where TNewCriteria : DBObject;
+
+   //   void Add<TNewCriteria>(
+   //      Expression<Func<T, ObjectId>> keySelector,
+   //      Expression<Func<TNewCriteria, bool>> predicate) where TNewCriteria : DBObject;
+   //}
+
+   public interface ICompoundExpression<T>
+   {
+      void Add(Logical operation, Expression<Func<T, bool>> predicate);
+      void Add(Expression<Func<T, bool>> predicate);
+      //void Add<TNewCriteria>(Expression<Func<T, ObjectId>> keySelector,
+      //   Expression<Func<TNewCriteria, bool>> predicate) where TNewCriteria : DBObject;
    }
 
    public static class FilteredEnumerableExtensions
@@ -136,21 +178,26 @@ namespace Autodesk.AutoCAD.DatabaseServices.Extensions
       }
 
       /// <summary>
-      /// An overload of Enumerable.Where() that uses a
-      /// DBObjectFilter internally to perform relational 
-      /// filtering of the input sequence.
+      /// An extension method similar to Enumerable.Where(), 
+      /// but which uses a DBObjectFilter internally to do
+      /// relational filtering of the input sequence.
       /// 
-      /// Example: Reduce a sequence of entities to
-      /// the subset that are on unlocked layers:
+      /// Example: Using the familar unlocked layer
+      /// use case, reduce a sequence of entities to
+      /// the subset that are not on locked layers:
       /// <code>
       /// 
       ///   IEnumerable<Entity> source = // assign to a sequence of entity
       ///   
-      ///   var filtered = source.Where<Entity, LayerTableRecord>(
+      ///   var filtered = source.WhereBy<Entity, LayerTableRecord>(
       ///      entity => entity.LayerId,
       ///      layer => !layer.IsLocked);
       ///      
       /// </code>  
+      /// Note that while there is no direct use of a 
+      /// DBObjectFilter in the above code, WhereBy() 
+      /// creates and uses DBObjectFilter internally
+      /// to perform the filtering.
       /// </summary>
       /// <typeparam name="T"></typeparam>
       /// <typeparam name="TCriteria"></typeparam>
