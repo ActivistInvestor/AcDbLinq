@@ -6,7 +6,7 @@
 /// 
 /// Supporting APIs for the AcDbLinq library.
 
-using Autodesk.AutoCAD.Runtime.Diagnostics;
+using System.Diagnostics.Extensions;
 using System.Collections;
 using System.Collections.Generic;
 

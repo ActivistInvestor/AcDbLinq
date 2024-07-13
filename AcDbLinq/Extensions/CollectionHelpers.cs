@@ -7,7 +7,7 @@
 
 using System;
 using System.Collections.Generic;
-using Autodesk.AutoCAD.Runtime.Diagnostics;
+using System.Diagnostics.Extensions;
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {

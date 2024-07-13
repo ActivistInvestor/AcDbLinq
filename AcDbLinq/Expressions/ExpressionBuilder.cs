@@ -7,7 +7,7 @@
 using System.Collections.Generic;
 using System.Linq.Expressions.Extensions;
 using Autodesk.AutoCAD.DatabaseServices.Extensions;
-using Autodesk.AutoCAD.Runtime.Diagnostics;
+using System.Diagnostics.Extensions;
 
 namespace System.Linq.Expressions.Predicates
 {
@@ -182,6 +182,7 @@ namespace System.Linq.Expressions.Predicates
       /// <param name="right"></param>
       /// <returns></returns>
       /// <exception cref="NotSupportedException"></exception>
+      
       public static Expression<Func<T, bool>> Add<T>(this Expression<Func<T, bool>> left, Logical operation, Expression<Func<T, bool>> right)
       {
          Assert.IsNotNull(left, nameof(left));

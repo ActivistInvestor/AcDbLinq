@@ -9,7 +9,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.AutoCAD.ApplicationServices.Extensions;
-using Autodesk.AutoCAD.Runtime.Diagnostics;
+using System.Diagnostics.Extensions;
 using AcRx = Autodesk.AutoCAD.Runtime;
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions

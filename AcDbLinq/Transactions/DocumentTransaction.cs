@@ -7,7 +7,7 @@
 using Autodesk.AutoCAD.DatabaseServices.Extensions;
 using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Runtime;
-using Autodesk.AutoCAD.Runtime.Diagnostics;
+using System.Diagnostics.Extensions;
 using AcRx = Autodesk.AutoCAD.Runtime;
 
 namespace Autodesk.AutoCAD.ApplicationServices.Extensions

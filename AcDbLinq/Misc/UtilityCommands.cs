@@ -11,7 +11,7 @@ namespace Ac2025Project
       /// of a selected object. 
       /// </summary>
       
-      [CommandMethod("MDGDUMP", CommandFlags.UsePickSet | CommandFlags.Redraw)]
+      [CommandMethod("MGDUMP", CommandFlags.UsePickSet | CommandFlags.Redraw)]
       public static void Dump()
       {
          using(var trans = new DocumentTransaction(true, true))

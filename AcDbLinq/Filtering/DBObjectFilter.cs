@@ -11,7 +11,7 @@ using System;
 using System.Linq.Expressions;
 using System.Linq.Expressions.Predicates;
 using System.Text;
-using Autodesk.AutoCAD.Runtime.Diagnostics;
+using System.Diagnostics.Extensions;
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions
 {

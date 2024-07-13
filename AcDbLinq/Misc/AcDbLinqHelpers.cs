@@ -13,7 +13,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
 using Autodesk.AutoCAD.Runtime;
-using Autodesk.AutoCAD.Runtime.Diagnostics;
+using System.Diagnostics.Extensions;
 using static Autodesk.AutoCAD.DatabaseServices.Extensions.AcDbLinqHelpers;
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions

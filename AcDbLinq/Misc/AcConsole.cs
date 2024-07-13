@@ -24,6 +24,12 @@ using AcRx = Autodesk.AutoCAD.Runtime;
 /// AcConsole simply routes trace output to the
 /// AutoCAD console in lieu of other trace output 
 /// functionality not included in this library.
+/// 
+/// Routing trace output to the AutoCAD console allows
+/// it to be viewed 'in-context', along with standard
+/// console output, to more-easily determine the order 
+/// in which calls to these methods occur, relative to 
+/// standard output messages and prompts.
 
 namespace Autodesk.AutoCAD.Runtime
 {
@@ -59,9 +65,11 @@ namespace Autodesk.AutoCAD.Runtime
          Write("\n" + fmt, args);
       }
 
-      public static void TraceThread()
+      public static void TraceThread(string fmt = null, params object[] args)
       {
-         Write($"\nCurrent Thread = {Thread.CurrentThread.ManagedThreadId}");
+         if(!string.IsNullOrWhiteSpace(fmt))
+            Write(fmt, args);
+         Write($"Current Thread = {Thread.CurrentThread.ManagedThreadId}");
       }
 
       public static void TraceModule(Type type = null)
@@ -69,16 +77,21 @@ namespace Autodesk.AutoCAD.Runtime
          Write($"\nUsing {(type ?? typeof(AcConsole)).Assembly.Location}");
       }
 
-      public static void TraceContext()
+      public static void TraceContext(string fmt = null, params object[] args)
       {
          var appctx = Application.DocumentManager.IsApplicationContext ?
             "Application" : "Document";
-         Write($"\nContext: {appctx}");
+         if(!string.IsNullOrWhiteSpace(fmt))
+            Write(fmt + $" Context: {appctx}", args);
+         else
+            Write($"\nContext: {appctx}");
       }
 
-      public static void StackTrace()
+      public static void StackTrace(string fmt = null, params object[] args)
       {
-         Write(new StackTrace(1).ToString());
+         if(!string.IsNullOrWhiteSpace(fmt))
+            WriteLine(fmt, args);
+         Write(new StackTrace(1, true).ToString());
       }
 
       public static void TraceProperties(object target, string delimiter = "\n")
@@ -95,8 +108,7 @@ namespace Autodesk.AutoCAD.Runtime
          {
             foreach(PropertyDescriptor prop in TypeDescriptor.GetProperties(target))
             {
-               object value = "(null)";
-               value = GetValue(target, prop);
+               object value = GetValue(target, prop);
                string str = $"  {prop.Name} = " + value.ToString() + delimiter;
                sb.Append(str);
             }

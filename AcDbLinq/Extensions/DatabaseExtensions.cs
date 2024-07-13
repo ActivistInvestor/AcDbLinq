@@ -13,7 +13,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using Autodesk.AutoCAD.DatabaseServices.Extensions;
 using Autodesk.AutoCAD.Runtime;
-using Autodesk.AutoCAD.Runtime.Diagnostics;
+using System.Diagnostics.Extensions;
 using AcRx = Autodesk.AutoCAD.Runtime;
 
 namespace Autodesk.AutoCAD.DatabaseServices.Extensions

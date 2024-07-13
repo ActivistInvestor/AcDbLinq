@@ -4,7 +4,7 @@
 ///
 /// Distributed under terms of the MIT License
 
-using Autodesk.AutoCAD.Runtime.Diagnostics;
+using System.Diagnostics.Extensions;
 using System.Linq.Expressions.Predicates;
 
 namespace System.Linq.Expressions.Extensions

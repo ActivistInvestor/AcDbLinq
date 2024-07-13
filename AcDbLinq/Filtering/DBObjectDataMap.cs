@@ -10,7 +10,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using Autodesk.AutoCAD.Runtime;
-using Autodesk.AutoCAD.Runtime.Diagnostics;
+using System.Diagnostics.Extensions;
 using AcRx = Autodesk.AutoCAD.Runtime;
 
 #pragma warning disable CS0618 // Type or member is obsolete
